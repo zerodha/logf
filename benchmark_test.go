@@ -49,24 +49,6 @@ func BenchmarkThreeFields(b *testing.B) {
 	})
 }
 
-func BenchmarkThreeFields_WithCaller(b *testing.B) {
-	logger := logf.New()
-	logger.SetWriter(io.Discard)
-	logger.SetCallerFrame(true, 3)
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	b.RunParallel(func(p *testing.PB) {
-		for p.Next() {
-			logger.WithFields(logf.Fields{
-				"component": "api",
-				"method":    "GET",
-				"bytes":     1 << 18,
-			}).Info("request completed")
-		}
-	})
-}
-
 func BenchmarkErrorField(b *testing.B) {
 	logger := logf.New()
 	logger.SetWriter(io.Discard)
@@ -108,6 +90,24 @@ func BenchmarkHugePayload(b *testing.B) {
 					"https://dummyjson.com/image/i/products/11/thumbnail.jpg",
 				},
 			}).Info("fetched details")
+		}
+	})
+}
+
+func BenchmarkThreeFields_WithCaller(b *testing.B) {
+	logger := logf.New()
+	logger.SetWriter(io.Discard)
+	logger.SetCallerFrame(true, 3)
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	b.RunParallel(func(p *testing.PB) {
+		for p.Next() {
+			logger.WithFields(logf.Fields{
+				"component": "api",
+				"method":    "GET",
+				"bytes":     1 << 18,
+			}).Info("request completed")
 		}
 	})
 }
@@ -157,6 +157,22 @@ func BenchmarkThreeFields_WithColor(b *testing.B) {
 	})
 }
 
+func BenchmarkErrorField_WithColor(b *testing.B) {
+	logger := logf.New()
+	logger.SetWriter(io.Discard)
+	logger.SetColorOutput(true)
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	fakeErr := errors.New("fake error")
+
+	b.RunParallel(func(p *testing.PB) {
+		for p.Next() {
+			logger.WithError(fakeErr).Error("request failed")
+		}
+	})
+}
+
 func BenchmarkHugePayload_WithColor(b *testing.B) {
 	logger := logf.New()
 	logger.SetWriter(io.Discard)
@@ -184,22 +200,6 @@ func BenchmarkHugePayload_WithColor(b *testing.B) {
 					"https://dummyjson.com/image/i/products/11/thumbnail.jpg",
 				},
 			}).Info("fetched details")
-		}
-	})
-}
-
-func BenchmarkErrorField_WithColor(b *testing.B) {
-	logger := logf.New()
-	logger.SetWriter(io.Discard)
-	logger.SetColorOutput(true)
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	fakeErr := errors.New("fake error")
-
-	b.RunParallel(func(p *testing.PB) {
-		for p.Next() {
-			logger.WithError(fakeErr).Error("request failed")
 		}
 	})
 }

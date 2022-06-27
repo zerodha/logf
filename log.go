@@ -10,8 +10,6 @@ import (
 	"strconv"
 	"sync"
 	"time"
-
-	"github.com/fatih/color"
 )
 
 // Logger is the interface for all log operations
@@ -47,18 +45,32 @@ type Fields map[string]any
 // Severity level of the log.
 type Level int
 
-// 0 - debug
-// 1 - info
-// 2 - warn
-// 3 - error
-// 4 - fatal
 const (
-	DebugLevel Level = iota
-	InfoLevel
-	WarnLevel
-	ErrorLevel
-	FatalLevel
+	DebugLevel Level = iota // 0
+	InfoLevel               // 1
+	WarnLevel               // 2
+	ErrorLevel              // 3
+	FatalLevel              // 4
 )
+
+// ANSI escape codes for coloring text in console.
+const (
+	reset  = "\033[0m"
+	purple = "\033[35m"
+	red    = "\033[31m"
+	yellow = "\033[33m"
+	cyan   = "\033[36m"
+	white  = "\033[37m"
+)
+
+// Map colors with log level.
+var colorLvlMap = [...]string{
+	DebugLevel: purple,
+	InfoLevel:  cyan,
+	WarnLevel:  yellow,
+	ErrorLevel: red,
+	FatalLevel: red,
+}
 
 // New instantiates a logger object.
 // It writes to `stderr` as the default and it's non configurable.
@@ -187,7 +199,7 @@ func (l *Logger) WithError(err error) *Logger {
 // handleLog emits the log after filtering log level
 // and applying formatting of the fields.
 func (l *Logger) handleLog(msg string, lvl Level) {
-	now := time.Now().Unix()
+	now := time.Now().Format(l.tsFormat)
 	// Lock the map to prevet concurrent access to fields map.
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -231,7 +243,7 @@ func (l *Logger) handleLog(msg string, lvl Level) {
 // writeToBuf takes key, value and additional options to write to the buffer in logfmt.
 func (l *Logger) writeToBuf(key string, val any, lvl Level, color, space bool) {
 	if color {
-		l.bufW.WriteString(getColoredKey(key, lvl.String()))
+		l.bufW.WriteString(getColoredKey(key, lvl))
 	} else {
 		l.bufW.WriteString(key)
 	}
@@ -243,26 +255,8 @@ func (l *Logger) writeToBuf(key string, val any, lvl Level, color, space bool) {
 }
 
 // getColoredKey returns a color formatter key based on the log level.
-func getColoredKey(k string, lvl string) string {
-	var (
-		white  = color.New(color.FgWhite, color.Bold).SprintFunc()
-		cyan   = color.New(color.FgCyan, color.Bold).SprintFunc()
-		red    = color.New(color.FgRed, color.Bold).SprintFunc()
-		yellow = color.New(color.FgYellow, color.Bold).SprintFunc()
-	)
-
-	switch lvl {
-	default:
-		return k
-	case "debug":
-		return white(k)
-	case "info":
-		return cyan(k)
-	case "warn":
-		return yellow(k)
-	case "fatal", "error":
-		return red(k)
-	}
+func getColoredKey(k string, lvl Level) string {
+	return colorLvlMap[lvl] + k + reset
 }
 
 // caller returns the file:line of the caller.
