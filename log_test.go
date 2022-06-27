@@ -40,7 +40,7 @@ func TestLevelParsing(t *testing.T) {
 func TestNewLoggerDefault(t *testing.T) {
 	l := New()
 	assert.Equal(t, l.level, InfoLevel, "level is info")
-	assert.Equal(t, l.enableColor, true, "color output is enabled")
+	assert.Equal(t, l.enableColor, false, "color output is disabled")
 	assert.Equal(t, l.enableCaller, false, "caller is disabled")
 	assert.Equal(t, l.callerSkipFrameCount, 0, "skip frame count is 0")
 	assert.Equal(t, l.tsFormat, time.RFC3339, "timestamp format is RFC3399")

@@ -69,7 +69,7 @@ func New() *Logger {
 		bufW:                 bytes.NewBuffer([]byte{}),
 		level:                InfoLevel,
 		tsFormat:             time.RFC3339,
-		enableColor:          true,
+		enableColor:          false,
 		enableCaller:         false,
 		callerSkipFrameCount: 0,
 		fields:               make(Fields, 0),
@@ -202,6 +202,10 @@ func (l *Logger) handleLog(msg string, lvl Level) {
 	l.writeToBuf("timestamp", now, lvl, l.enableColor, true)
 	l.writeToBuf("level", lvl, lvl, l.enableColor, true)
 	l.writeToBuf("message", msg, lvl, l.enableColor, true)
+
+	if l.enableCaller {
+		l.writeToBuf("caller", caller(l.callerSkipFrameCount), lvl, l.enableColor, true)
+	}
 
 	// Format the line as logfmt.
 	var count int // count is find out if this is the last key in while itering l.fields.

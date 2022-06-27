@@ -5,7 +5,7 @@
 [![GitHub Actions](https://github.com/mr-karan/logf/actions/workflows/build.yml/badge.svg)](https://github.com/mr-karan/logf/actions/workflows/build.yml)
 
 
-logf provides a minimal logging interface for Go applications. It emits **structured logs** ([`logfmt`](https://brandur.org/logfmt) style) in human readable and machine friendly way.
+logf is a **high performance** logging library Go applications with a **minimal** API overhead. It emits **structured logs** ([`logfmt`](https://brandur.org/logfmt) style) in human readable and machine friendly way. `logf` tries to be customisable without providing an overwhelming amount of things to configure before you start logging in your Go apps.
 
 ## Example
 
@@ -62,7 +62,6 @@ timestamp=2022-06-26T11:56:46+05:30 level=error message=error fetching details e
 timestamp=2022-06-26T11:56:46.412189111+05:30 level=info message=request success ip=1.1.1.1 method=GET request_id=3MG91VKP
 timestamp=2022-06-26T11:56:46.412204619+05:30 level=warn message=this isn't supposed to happen ip=1.1.1.1 level=warn message=this isn't supposed to happen method=GET request_id=3MG91VKP timestamp=2022-06-26T11:56:46.412204619+05:30
 timestamp=2022-06-26T11:56:46.412218628+05:30 level=fatal message=goodbye world ip=1.1.1.1 level=fatal message=goodbye world method=GET request_id=3MG91VKP timestamp=2022-06-26T11:56:46.412218628+05:30
-exit status 1
 ```
 
 ### Console Output
@@ -84,20 +83,35 @@ Agreed there are many logging libraries out there but I was dissatisfied with th
 
 You can run benchmarks with `make bench`.
 
+**Note**
+> Enabling color significantly affects performance. You should enable them only in scenarios where this isn't a concern (for eg single run CLI apps etc.)
+
+### No Colors (Default)
+
 ```
-BenchmarkNoField-8                        290559              3797 ns/op            1576 B/op         74 allocs/op
-BenchmarkNoField_NoColor-8               1313766               924.8 ns/op           328 B/op         11 allocs/op
-BenchmarkOneField-8                       219285              5445 ns/op            2609 B/op        103 allocs/op
-BenchmarkOneField_NoColor-8               668251              1550 ns/op             928 B/op         19 allocs/op
-BenchmarkThreeFields-8                    152988              7992 ns/op            3953 B/op        153 allocs/op
-BenchmarkThreeFields_NoColor-8            516135              2220 ns/op            1320 B/op         27 allocs/op
-BenchmarkHugePayload-8                     57367             22658 ns/op           15121 B/op        356 allocs/op
-BenchmarkHugePayload_NoColor-8            140937              7404 ns/op            8342 B/op         62 allocs/op
-BenchmarkErrorField-8                     212184              5639 ns/op            2657 B/op        104 allocs/op
-BenchmarkErrorField_NoColor-8             703165              1593 ns/op             952 B/op         20 allocs/op
+BenchmarkNoField-8                       6720405               172.8 ns/op            40 B/op          3 allocs/op
+BenchmarkOneField-8                      2377168               597.5 ns/op           376 B/op          5 allocs/op
+BenchmarkThreeFields-8                   1951350               540.5 ns/op           384 B/op          6 allocs/op
+BenchmarkThreeFields_WithCaller-8         742970              1551 ns/op             680 B/op         10 allocs/op
+BenchmarkErrorField-8                    2714325               442.5 ns/op           392 B/op          6 allocs/op
+BenchmarkHugePayload-8                    531368              2151 ns/op            1427 B/op         17 allocs/op
+```
+
+### With Colors
+
+```
+BenchmarkNoField_WithColor-8              398384              2992 ns/op            1200 B/op         66 allocs/op
+BenchmarkOneField_WithColor-8             227470              5106 ns/op            2320 B/op        110 allocs/op
+BenchmarkThreeFields_WithColor-8          120404              9819 ns/op            3921 B/op        195 allocs/op
+BenchmarkHugePayload_WithColor-8           45508             25975 ns/op           11344 B/op        542 allocs/op
+BenchmarkErrorField_WithColor-8           237148              5357 ns/op            2336 B/op        111 allocs/op
 ```
 
 For a comparison with existing popular libs, visit [uber-go/zap#performance](https://github.com/uber-go/zap#performance).
+
+## Contributors
+
+- [Sarat](https://github.com/iamd3vil/)
 
 ## LICENSE
 

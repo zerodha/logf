@@ -18,31 +18,9 @@ func BenchmarkNoField(b *testing.B) {
 	}
 }
 
-func BenchmarkNoField_NoColor(b *testing.B) {
-	logger := logf.New()
-	logger.SetWriter(io.Discard)
-	logger.SetColorOutput(false)
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		logger.Info("hello world")
-	}
-}
-
 func BenchmarkOneField(b *testing.B) {
 	logger := logf.New()
 	logger.SetWriter(io.Discard)
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		logger.WithFields(logf.Fields{"stack": "testing"}).Info("hello world")
-	}
-}
-
-func BenchmarkOneField_NoColor(b *testing.B) {
-	logger := logf.New()
-	logger.SetWriter(io.Discard)
-	logger.SetColorOutput(false)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -65,10 +43,10 @@ func BenchmarkThreeFields(b *testing.B) {
 	}
 }
 
-func BenchmarkThreeFields_NoColor(b *testing.B) {
+func BenchmarkThreeFields_WithCaller(b *testing.B) {
 	logger := logf.New()
 	logger.SetWriter(io.Discard)
-	logger.SetColorOutput(false)
+	logger.SetCallerFrame(true, 3)
 	b.ReportAllocs()
 	b.ResetTimer()
 
@@ -78,6 +56,19 @@ func BenchmarkThreeFields_NoColor(b *testing.B) {
 			"method":    "GET",
 			"bytes":     1 << 18,
 		}).Info("request completed")
+	}
+}
+
+func BenchmarkErrorField(b *testing.B) {
+	logger := logf.New()
+	logger.SetWriter(io.Discard)
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	fakeErr := errors.New("fake error")
+
+	for i := 0; i < b.N; i++ {
+		logger.WithError(fakeErr).Error("request failed")
 	}
 }
 
@@ -109,10 +100,48 @@ func BenchmarkHugePayload(b *testing.B) {
 	}
 }
 
-func BenchmarkHugePayload_NoColor(b *testing.B) {
+func BenchmarkNoField_WithColor(b *testing.B) {
 	logger := logf.New()
 	logger.SetWriter(io.Discard)
-	logger.SetColorOutput(false)
+	logger.SetColorOutput(true)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		logger.Info("hello world")
+	}
+}
+
+func BenchmarkOneField_WithColor(b *testing.B) {
+	logger := logf.New()
+	logger.SetWriter(io.Discard)
+	logger.SetColorOutput(true)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		logger.WithFields(logf.Fields{"stack": "testing"}).Info("hello world")
+	}
+}
+
+func BenchmarkThreeFields_WithColor(b *testing.B) {
+	logger := logf.New()
+	logger.SetWriter(io.Discard)
+	logger.SetColorOutput(true)
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		logger.WithFields(logf.Fields{
+			"component": "api",
+			"method":    "GET",
+			"bytes":     1 << 18,
+		}).Info("request completed")
+	}
+}
+
+func BenchmarkHugePayload_WithColor(b *testing.B) {
+	logger := logf.New()
+	logger.SetWriter(io.Discard)
+	logger.SetColorOutput(true)
 	b.ReportAllocs()
 	b.ResetTimer()
 
@@ -138,23 +167,10 @@ func BenchmarkHugePayload_NoColor(b *testing.B) {
 	}
 }
 
-func BenchmarkErrorField(b *testing.B) {
+func BenchmarkErrorField_WithColor(b *testing.B) {
 	logger := logf.New()
 	logger.SetWriter(io.Discard)
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	fakeErr := errors.New("fake error")
-
-	for i := 0; i < b.N; i++ {
-		logger.WithError(fakeErr).Error("request failed")
-	}
-}
-
-func BenchmarkErrorField_NoColor(b *testing.B) {
-	logger := logf.New()
-	logger.SetWriter(io.Discard)
-	logger.SetColorOutput(false)
+	logger.SetColorOutput(true)
 	b.ReportAllocs()
 	b.ResetTimer()
 

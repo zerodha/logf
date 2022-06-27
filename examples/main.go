@@ -12,6 +12,9 @@ func main() {
 	// Basic log.
 	logger.Info("starting app")
 
+	// Enable colored output.
+	logger.SetColorOutput(true)
+
 	// Change verbosity on the fly.
 	logger.SetLevel(logf.DebugLevel)
 	logger.Debug("meant for debugging app")
