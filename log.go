@@ -210,22 +210,11 @@ func (l *Logger) handleLog(msg string, lvl Level) {
 	// Format the line as logfmt.
 	var count int // count is find out if this is the last key in while itering l.fields.
 	for k, v := range l.fields {
-		if l.enableColor {
-			// Release the lock because coloring the key is expensive.
-			l.mu.Unlock()
-			space := false
-			if count != len(l.fields)-1 {
-				space = true
-			}
-			l.writeToBuf(getColoredKey(k, lvl.String()), v, lvl, l.enableColor, space)
-			l.mu.Lock()
-		} else {
-			space := false
-			if count != len(l.fields)-1 {
-				space = true
-			}
-			l.writeToBuf(k, v, lvl, l.enableColor, space)
+		space := false
+		if count != len(l.fields)-1 {
+			space = true
 		}
+		l.writeToBuf(k, v, lvl, l.enableColor, space)
 		count++
 	}
 	l.bufW.WriteString("\n")
