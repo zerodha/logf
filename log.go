@@ -1,14 +1,13 @@
 package logf
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	stdlog "log"
 	"os"
 	"runtime"
-	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -18,15 +17,15 @@ import (
 // Logger is the interface for all log operations
 // related to emitting logs.
 type Logger struct {
-	mu                   sync.Mutex // Atomic writes.
-	out                  io.Writer  // Output destination.
-	buf                  []byte     // Accumulate text to write to out.
-	level                Level      // Verbosity of logs.
-	tsFormat             string     // Timestamp format.
-	enableColor          bool       // Colored output.
-	enableCaller         bool       // Print caller information.
-	callerSkipFrameCount int        // Number of frames to skip when detecting caller
-	fields               Fields     // Arbitrary map of KV pair to log.
+	mu                   sync.Mutex    // Atomic writes.
+	out                  io.Writer     // Output destination.
+	bufW                 *bytes.Buffer // Buffer to accumulate before writing to output.
+	level                Level         // Verbosity of logs.
+	tsFormat             string        // Timestamp format.
+	enableColor          bool          // Colored output.
+	enableCaller         bool          // Print caller information.
+	callerSkipFrameCount int           // Number of frames to skip when detecting caller
+	fields               Fields        // Arbitrary map of KV pair to log.
 }
 
 // Opts represents various properties
@@ -67,6 +66,7 @@ func New() *Logger {
 	// Initialise logger with sane defaults.
 	return &Logger{
 		out:                  os.Stderr,
+		bufW:                 bytes.NewBuffer([]byte{}),
 		level:                InfoLevel,
 		tsFormat:             time.RFC3339,
 		enableColor:          true,
@@ -187,6 +187,7 @@ func (l *Logger) WithError(err error) *Logger {
 // handleLog emits the log after filtering log level
 // and applying formatting of the fields.
 func (l *Logger) handleLog(msg string, lvl Level) {
+	now := time.Now().Unix()
 	// Lock the map to prevet concurrent access to fields map.
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -197,64 +198,54 @@ func (l *Logger) handleLog(msg string, lvl Level) {
 		return
 	}
 
-	// Create the output map and copy fields.
-	outMap := make(map[string]any)
-	// Copy from the original map to the target map
-	for k, v := range l.fields {
-		outMap[k] = v
-	}
-
-	// Collect all user defined keys and sort them.
-	var keys []string
-	for k := range outMap {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	// All the extra keys will be appended to it after these fixed keys.
-	fixedKeys := []string{"timestamp", "level", "message"}
-	fixedKeys = append(fixedKeys, keys...)
-	if l.enableCaller {
-		fixedKeys = append(fixedKeys, "caller")
-	}
-
-	// Add extra metadata.
-	outMap["message"] = msg
-	outMap["level"] = lvl
-	outMap["timestamp"] = time.Now().Format(l.tsFormat)
-	if l.enableCaller {
-		// Release the lock because getting caller info is expensive.
-		l.mu.Unlock()
-		outMap["caller"] = caller(l.callerSkipFrameCount)
-		l.mu.Lock()
-	}
+	// Write fixed keys to the buffer before writing user provided ones.
+	l.writeToBuf("timestamp", now, lvl, l.enableColor, true)
+	l.writeToBuf("level", lvl, lvl, l.enableColor, true)
+	l.writeToBuf("message", msg, lvl, l.enableColor, true)
 
 	// Format the line as logfmt.
-	var line string
-	for _, k := range fixedKeys {
+	var count int // count is find out if this is the last key in while itering l.fields.
+	for k, v := range l.fields {
 		if l.enableColor {
 			// Release the lock because coloring the key is expensive.
 			l.mu.Unlock()
-			line += fmt.Sprintf("%s=%v ", getColoredKey(k, lvl.String()), outMap[k])
+			space := false
+			if count != len(l.fields)-1 {
+				space = true
+			}
+			l.writeToBuf(getColoredKey(k, lvl.String()), v, lvl, l.enableColor, space)
 			l.mu.Lock()
 		} else {
-			line += fmt.Sprintf("%s=%v ", k, outMap[k])
+			space := false
+			if count != len(l.fields)-1 {
+				space = true
+			}
+			l.writeToBuf(k, v, lvl, l.enableColor, space)
 		}
+		count++
 	}
+	l.bufW.WriteString("\n")
 
-	dest := strings.TrimRight(line, " ")
-
-	// Reset buffer.
-	l.buf = l.buf[:0]
-	l.buf = append(l.buf, dest...)
-	if len(dest) == 0 || dest[len(dest)-1] != '\n' {
-		l.buf = append(l.buf, '\n')
-	}
-
-	_, err := l.out.Write(l.buf)
+	_, err := io.Copy(l.out, l.bufW)
 	if err != nil {
 		// Should ideally never happen.
 		stdlog.Printf("error logging: %v", err)
+	}
+
+	l.bufW.Reset()
+}
+
+// writeToBuf takes key, value and additional options to write to the buffer in logfmt.
+func (l *Logger) writeToBuf(key string, val any, lvl Level, color, space bool) {
+	if color {
+		l.bufW.WriteString(getColoredKey(key, lvl.String()))
+	} else {
+		l.bufW.WriteString(key)
+	}
+	l.bufW.WriteString("=")
+	l.bufW.WriteString(getString(val))
+	if space {
+		l.bufW.WriteByte(' ')
 	}
 }
 
@@ -289,4 +280,28 @@ func caller(depth int) string {
 		line = 0
 	}
 	return file + ":" + strconv.Itoa(line)
+}
+
+// getString returns a string representation of the given value.
+func getString(val any) string {
+	switch v := val.(type) {
+	case string:
+		return v
+	case int:
+		return strconv.Itoa(v)
+	case int16:
+		return strconv.FormatInt(int64(v), 10)
+	case int32:
+		return strconv.FormatInt(int64(v), 10)
+	case int64:
+		return strconv.FormatInt(int64(v), 10)
+	case float32:
+		return strconv.FormatFloat(float64(v), 'b', 4, 32)
+	case float64:
+		return strconv.FormatFloat(v, 'b', 4, 64)
+	case fmt.Stringer:
+		return v.String()
+	default:
+		return fmt.Sprintf("%v", val)
+	}
 }
