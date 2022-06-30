@@ -9,6 +9,7 @@ import (
 
 func main() {
 	logger := logf.New()
+
 	// Basic log.
 	logger.Info("starting app")
 

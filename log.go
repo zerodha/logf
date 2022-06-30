@@ -13,6 +13,8 @@ import (
 	"unicode/utf8"
 )
 
+var hex = "0123456789abcdef"
+
 // Logger is the interface for all log operations
 // related to emitting logs.
 type Logger struct {
@@ -110,36 +112,28 @@ func (l Level) String() string {
 // SetLevel sets the verbosity for logger.
 // Verbosity can be dynamically changed by the caller.
 func (l *Logger) SetLevel(lvl Level) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	l.level = lvl
 }
 
 // SetWriter sets the output writer for the logger
 func (l *Logger) SetWriter(w io.Writer) {
 	l.mu.Lock()
-	defer l.mu.Unlock()
 	l.out = w
+	l.mu.Unlock()
 }
 
 // SetTimestampFormat sets the timestamp format for the `timestamp` key.
 func (l *Logger) SetTimestampFormat(f string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	l.tsFormat = f
 }
 
 // SetColorOutput enables/disables colored output.
 func (l *Logger) SetColorOutput(color bool) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	l.enableColor = color
 }
 
 // SetCallerFrame enables/disables the caller source in the log line.
 func (l *Logger) SetCallerFrame(caller bool, depth int) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	l.enableCaller = caller
 	l.callerSkipFrameCount = depth
 }
@@ -252,12 +246,11 @@ func writeToBuf(bufW *bytes.Buffer, key string, val any, lvl Level, color, space
 	}
 }
 
+// escapeAndWriteString escapes the string if any unwanted chars are there.
 func escapeAndWriteString(bufW *bytes.Buffer, s string) {
 	idx := bytes.IndexFunc([]byte(s), checkEscapingRune)
 	if idx != -1 {
-		bufW.WriteByte('"')
-		bufW.WriteString(s)
-		bufW.WriteByte('"')
+		writeQuotedString(bufW, s)
 		return
 	}
 	bufW.WriteString(s)
@@ -302,6 +295,62 @@ func getString(val any) string {
 	}
 }
 
+// checkEscapingRune returns true if the rune is to be escaped.
 func checkEscapingRune(r rune) bool {
-	return r == '=' || r == '"' || r == utf8.RuneError
+	return r == '=' || r == ' ' || r == '"' || r == utf8.RuneError
+}
+
+// writeQuotedString quotes a string before writing to the buffer.
+// Taken from: https://github.com/go-logfmt/logfmt/blob/99455b83edb21b32a1f1c0a32f5001b77487b721/jsonstring.go#L95
+func writeQuotedString(bufW *bytes.Buffer, s string) {
+	bufW.WriteByte('"')
+	start := 0
+	for i := 0; i < len(s); {
+		if b := s[i]; b < utf8.RuneSelf {
+			if 0x20 <= b && b != '\\' && b != '"' {
+				i++
+				continue
+			}
+			if start < i {
+				bufW.WriteString(s[start:i])
+			}
+			switch b {
+			case '\\', '"':
+				bufW.WriteByte('\\')
+				bufW.WriteByte(b)
+			case '\n':
+				bufW.WriteByte('\\')
+				bufW.WriteByte('n')
+			case '\r':
+				bufW.WriteByte('\\')
+				bufW.WriteByte('r')
+			case '\t':
+				bufW.WriteByte('\\')
+				bufW.WriteByte('t')
+			default:
+				// This encodes bytes < 0x20 except for \n, \r, and \t.
+				bufW.WriteString(`\u00`)
+				bufW.WriteByte(hex[b>>4])
+				bufW.WriteByte(hex[b&0xF])
+			}
+			i++
+			start = i
+			continue
+		}
+		c, size := utf8.DecodeRuneInString(s[i:])
+		if c == utf8.RuneError {
+			if start < i {
+				bufW.WriteString(s[start:i])
+			}
+			bufW.WriteString(`\ufffd`)
+			i += size
+			start = i
+			continue
+		}
+		i += size
+	}
+	if start < len(s) {
+		bufW.WriteString(s[start:])
+	}
+	bufW.WriteByte('"')
 }

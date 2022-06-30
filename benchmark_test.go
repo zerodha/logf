@@ -83,12 +83,6 @@ func BenchmarkHugePayload(b *testing.B) {
 				"brand":              "Impression of Acqua Di Gio",
 				"category":           "fragrances",
 				"thumbnail":          "https://dummyjson.com/image/i/products/11/thumbnail.jpg",
-				"images": []string{
-					"https://dummyjson.com/image/i/products/11/1.jpg",
-					"https://dummyjson.com/image/i/products/11/2.jpg",
-					"https://dummyjson.com/image/i/products/11/3.jpg",
-					"https://dummyjson.com/image/i/products/11/thumbnail.jpg",
-				},
 			}).Info("fetched details")
 		}
 	})
@@ -193,12 +187,6 @@ func BenchmarkHugePayload_WithColor(b *testing.B) {
 				"brand":              "Impression of Acqua Di Gio",
 				"category":           "fragrances",
 				"thumbnail":          "https://dummyjson.com/image/i/products/11/thumbnail.jpg",
-				"images": []string{
-					"https://dummyjson.com/image/i/products/11/1.jpg",
-					"https://dummyjson.com/image/i/products/11/2.jpg",
-					"https://dummyjson.com/image/i/products/11/3.jpg",
-					"https://dummyjson.com/image/i/products/11/thumbnail.jpg",
-				},
 			}).Info("fetched details")
 		}
 	})
