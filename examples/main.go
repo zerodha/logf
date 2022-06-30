@@ -9,6 +9,7 @@ import (
 
 func main() {
 	logger := logf.New()
+
 	// Basic log.
 	logger.Info("starting app")
 
@@ -34,7 +35,7 @@ func main() {
 	logger.SetTimestampFormat(time.RFC3339Nano)
 
 	// Create a logger and add fields which will be logged in every line.
-	requestLogger := logger.WithFields(logf.Fields{"request_id": "3MG91VKP", "ip": "1.1.1.1", "method": "GET"})
+	requestLogger := logger.WithFields(logf.Fields{"request_id": "3MG91VKP", "ip": "1.1.1.1", "method": "method=GET"})
 	requestLogger.Info("request success")
 	requestLogger.Warn("this isn't supposed to happen")
 
