@@ -10,20 +10,20 @@ import (
 	"strconv"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 // Logger is the interface for all log operations
 // related to emitting logs.
 type Logger struct {
-	mu                   sync.Mutex    // Atomic writes.
-	out                  io.Writer     // Output destination.
-	bufW                 *bytes.Buffer // Buffer to accumulate before writing to output.
-	level                Level         // Verbosity of logs.
-	tsFormat             string        // Timestamp format.
-	enableColor          bool          // Colored output.
-	enableCaller         bool          // Print caller information.
-	callerSkipFrameCount int           // Number of frames to skip when detecting caller
-	fields               Fields        // Arbitrary map of KV pair to log.
+	mu                   sync.Mutex // Atomic writes.
+	out                  io.Writer  // Output destination.
+	bufW                 sync.Pool  // Buffer pool to accumulate before writing to output.
+	level                Level      // Verbosity of logs.
+	tsFormat             string     // Timestamp format.
+	enableColor          bool       // Colored output.
+	enableCaller         bool       // Print caller information.
+	callerSkipFrameCount int        // Number of frames to skip when detecting caller
 }
 
 // Opts represents various properties
@@ -77,14 +77,15 @@ var colorLvlMap = [...]string{
 func New() *Logger {
 	// Initialise logger with sane defaults.
 	return &Logger{
-		out:                  os.Stderr,
-		bufW:                 bytes.NewBuffer([]byte{}),
+		out: os.Stderr,
+		bufW: sync.Pool{New: func() any {
+			return bytes.NewBuffer([]byte{})
+		}},
 		level:                InfoLevel,
 		tsFormat:             time.RFC3339,
 		enableColor:          false,
 		enableCaller:         false,
 		callerSkipFrameCount: 0,
-		fields:               make(Fields, 0),
 	}
 }
 
@@ -145,50 +146,44 @@ func (l *Logger) SetCallerFrame(caller bool, depth int) {
 
 // Debug emits a debug log line.
 func (l *Logger) Debug(msg string) {
-	l.handleLog(msg, DebugLevel)
+	l.handleLog(msg, DebugLevel, nil)
 }
 
 // Info emits a info log line.
 func (l *Logger) Info(msg string) {
-	l.handleLog(msg, InfoLevel)
+	l.handleLog(msg, InfoLevel, nil)
 }
 
 // Warn emits a warning log line.
 func (l *Logger) Warn(msg string) {
-	l.handleLog(msg, WarnLevel)
+	l.handleLog(msg, WarnLevel, nil)
 }
 
 // Error emits an error log line.
 func (l *Logger) Error(msg string) {
-	l.handleLog(msg, ErrorLevel)
+	l.handleLog(msg, ErrorLevel, nil)
 }
 
 // Fatal emits a fatal level log line.
 // It aborts the current program with an exit code of 1.
 func (l *Logger) Fatal(msg string) {
-	l.handleLog(msg, FatalLevel)
+	l.handleLog(msg, FatalLevel, nil)
 	os.Exit(1)
 }
 
 // WithFields returns a new entry with `fields` set.
-func (l *Logger) WithFields(fields Fields) *Logger {
-	if fields == nil {
-		fields = make(Fields, 0)
+func (l *Logger) WithFields(fields Fields) *FieldLogger {
+	fl := &FieldLogger{
+		fields: fields,
+		logger: l,
 	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	// Set the fields in logger.
-	l.fields = fields
-
-	return l
+	return fl
 }
 
 // WithError returns a Logger with the "error" key set to `err`.
-func (l *Logger) WithError(err error) *Logger {
+func (l *Logger) WithError(err error) *FieldLogger {
 	if err == nil {
-		return l
+		return &FieldLogger{logger: l}
 	}
 
 	return l.WithFields(Fields{
@@ -198,60 +193,74 @@ func (l *Logger) WithError(err error) *Logger {
 
 // handleLog emits the log after filtering log level
 // and applying formatting of the fields.
-func (l *Logger) handleLog(msg string, lvl Level) {
-	now := time.Now().Format(l.tsFormat)
-	// Lock the map to prevet concurrent access to fields map.
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
+func (l *Logger) handleLog(msg string, lvl Level, fields Fields) {
 	// Discard the log if the verbosity is higher.
 	// For eg, if the lvl is `3` (error), but the incoming message is `0` (debug), skip it.
 	if lvl < l.level {
 		return
 	}
 
+	now := time.Now().Format(l.tsFormat)
+
+	// Get a buffer from the pool.
+	bufW := l.bufW.Get().(*bytes.Buffer)
+	defer l.bufW.Put(bufW)
+
 	// Write fixed keys to the buffer before writing user provided ones.
-	l.writeToBuf("timestamp", now, lvl, l.enableColor, true)
-	l.writeToBuf("level", lvl, lvl, l.enableColor, true)
-	l.writeToBuf("message", msg, lvl, l.enableColor, true)
+	writeToBuf(bufW, "timestamp", now, lvl, l.enableColor, true)
+	writeToBuf(bufW, "level", lvl, lvl, l.enableColor, true)
+	writeToBuf(bufW, "message", msg, lvl, l.enableColor, true)
 
 	if l.enableCaller {
-		l.writeToBuf("caller", caller(l.callerSkipFrameCount), lvl, l.enableColor, true)
+		writeToBuf(bufW, "caller", caller(l.callerSkipFrameCount), lvl, l.enableColor, true)
 	}
 
 	// Format the line as logfmt.
-	var count int // count is find out if this is the last key in while itering l.fields.
-	for k, v := range l.fields {
+	var count int // count is find out if this is the last key in while itering fields.
+	for k, v := range fields {
 		space := false
-		if count != len(l.fields)-1 {
+		if count != len(fields)-1 {
 			space = true
 		}
-		l.writeToBuf(k, v, lvl, l.enableColor, space)
+		writeToBuf(bufW, k, v, lvl, l.enableColor, space)
 		count++
 	}
-	l.bufW.WriteString("\n")
+	bufW.WriteString("\n")
 
-	_, err := io.Copy(l.out, l.bufW)
+	l.mu.Lock()
+	_, err := io.Copy(l.out, bufW)
 	if err != nil {
 		// Should ideally never happen.
 		stdlog.Printf("error logging: %v", err)
 	}
+	l.mu.Unlock()
 
-	l.bufW.Reset()
+	bufW.Reset()
 }
 
 // writeToBuf takes key, value and additional options to write to the buffer in logfmt.
-func (l *Logger) writeToBuf(key string, val any, lvl Level, color, space bool) {
+func writeToBuf(bufW *bytes.Buffer, key string, val any, lvl Level, color, space bool) {
 	if color {
-		l.bufW.WriteString(getColoredKey(key, lvl))
+		escapeAndWriteString(bufW, getColoredKey(key, lvl))
 	} else {
-		l.bufW.WriteString(key)
+		escapeAndWriteString(bufW, key)
 	}
-	l.bufW.WriteString("=")
-	l.bufW.WriteString(getString(val))
+	bufW.WriteByte('=')
+	escapeAndWriteString(bufW, getString(val))
 	if space {
-		l.bufW.WriteByte(' ')
+		bufW.WriteByte(' ')
 	}
+}
+
+func escapeAndWriteString(bufW *bytes.Buffer, s string) {
+	idx := bytes.IndexFunc([]byte(s), checkEscapingRune)
+	if idx != -1 {
+		bufW.WriteByte('"')
+		bufW.WriteString(s)
+		bufW.WriteByte('"')
+		return
+	}
+	bufW.WriteString(s)
 }
 
 // getColoredKey returns a color formatter key based on the log level.
@@ -291,4 +300,8 @@ func getString(val any) string {
 	default:
 		return fmt.Sprintf("%v", val)
 	}
+}
+
+func checkEscapingRune(r rune) bool {
+	return r == '=' || r == '"' || r == utf8.RuneError
 }
