@@ -62,7 +62,6 @@ const (
 	red    = "\033[31m"
 	yellow = "\033[33m"
 	cyan   = "\033[36m"
-	white  = "\033[37m"
 )
 
 // Map colors with log level.
