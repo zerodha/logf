@@ -20,7 +20,7 @@ var hex = "0123456789abcdef"
 type Logger struct {
 	mu                   sync.Mutex // Atomic writes.
 	out                  io.Writer  // Output destination.
-	bufW                 sync.Pool  // Buffer pool to accumulate before writing to output.
+	bufPool              sync.Pool  // Buffer pool to accumulate before writing to output.
 	level                Level      // Verbosity of logs.
 	tsFormat             string     // Timestamp format.
 	enableColor          bool       // Colored output.
@@ -79,7 +79,7 @@ func New() *Logger {
 	// Initialise logger with sane defaults.
 	return &Logger{
 		out: os.Stderr,
-		bufW: sync.Pool{New: func() any {
+		bufPool: sync.Pool{New: func() any {
 			return bytes.NewBuffer([]byte{})
 		}},
 		level:                InfoLevel,
@@ -196,8 +196,7 @@ func (l *Logger) handleLog(msg string, lvl Level, fields Fields) {
 	now := time.Now().Format(l.tsFormat)
 
 	// Get a buffer from the pool.
-	bufW := l.bufW.Get().(*bytes.Buffer)
-	defer l.bufW.Put(bufW)
+	bufW := l.bufPool.Get().(*bytes.Buffer)
 
 	// Write fixed keys to the buffer before writing user provided ones.
 	writeToBuf(bufW, "timestamp", now, lvl, l.enableColor, true)
@@ -229,6 +228,9 @@ func (l *Logger) handleLog(msg string, lvl Level, fields Fields) {
 	l.mu.Unlock()
 
 	bufW.Reset()
+
+	// Put the writer back in the pool.
+	l.bufPool.Put(bufW)
 }
 
 // writeToBuf takes key, value and additional options to write to the buffer in logfmt.
