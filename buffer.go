@@ -32,6 +32,16 @@ type byteBuffer struct {
 	B []byte
 }
 
+// AppendByte appends a single byte to the buffer.
+func (bb *byteBuffer) AppendByte(b byte) {
+	bb.B = append(bb.B, b)
+}
+
+// AppendString appends a string to the buffer.
+func (bb *byteBuffer) AppendString(s string) {
+	bb.B = append(bb.B, s...)
+}
+
 // AppendInt appends an integer to the underlying buffer (assuming base 10).
 func (bb *byteBuffer) AppendInt(i int64) {
 	bb.B = strconv.AppendInt(bb.B, i, 10)

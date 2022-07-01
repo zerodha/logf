@@ -215,7 +215,7 @@ func (l *Logger) handleLog(msg string, lvl Level, fields Fields) {
 		writeToBuf(buf, k, v, lvl, l.enableColor, space)
 		count++
 	}
-	buf.WriteString("\n")
+	buf.AppendString("\n")
 
 	l.mu.Lock()
 	_, err := l.out.Write(buf.Bytes())
@@ -234,13 +234,13 @@ func (l *Logger) handleLog(msg string, lvl Level, fields Fields) {
 // writeTimeToBuf writes timestamp key + timestamp into buffer.
 func writeTimeToBuf(buf *byteBuffer, format string, lvl Level, color bool) {
 	if color {
-		buf.WriteString(getColoredKey(tsKey, lvl))
+		buf.AppendString(getColoredKey(tsKey, lvl))
 	} else {
-		buf.WriteString(tsKey)
+		buf.AppendString(tsKey)
 	}
 
 	buf.AppendTime(time.Now(), format)
-	buf.WriteByte(' ')
+	buf.AppendByte(' ')
 }
 
 // writeStringToBuf takes key, value and additional options to write to the buffer in logfmt.
@@ -250,10 +250,10 @@ func writeStringToBuf(buf *byteBuffer, key string, val string, lvl Level, color,
 	} else {
 		escapeAndWriteString(buf, key)
 	}
-	buf.WriteByte('=')
+	buf.AppendByte('=')
 	escapeAndWriteString(buf, val)
 	if space {
-		buf.WriteByte(' ')
+		buf.AppendByte(' ')
 	}
 }
 
@@ -264,7 +264,7 @@ func writeToBuf(buf *byteBuffer, key string, val any, lvl Level, color, space bo
 	} else {
 		escapeAndWriteString(buf, key)
 	}
-	buf.WriteByte('=')
+	buf.AppendByte('=')
 
 	switch v := val.(type) {
 	case string:
@@ -288,7 +288,7 @@ func writeToBuf(buf *byteBuffer, key string, val any, lvl Level, color, space bo
 	}
 
 	if space {
-		buf.WriteByte(' ')
+		buf.AppendByte(' ')
 	}
 }
 
@@ -299,7 +299,7 @@ func escapeAndWriteString(buf *byteBuffer, s string) {
 		writeQuotedString(buf, s)
 		return
 	}
-	buf.WriteString(s)
+	buf.AppendString(s)
 }
 
 // getColoredKey returns a color formatter key based on the log level.
@@ -325,7 +325,7 @@ func checkEscapingRune(r rune) bool {
 // writeQuotedString quotes a string before writing to the buffer.
 // Taken from: https://github.com/go-logfmt/logfmt/blob/99455b83edb21b32a1f1c0a32f5001b77487b721/jsonstring.go#L95
 func writeQuotedString(buf *byteBuffer, s string) {
-	buf.WriteByte('"')
+	buf.AppendByte('"')
 	start := 0
 	for i := 0; i < len(s); {
 		if b := s[i]; b < utf8.RuneSelf {
@@ -334,26 +334,26 @@ func writeQuotedString(buf *byteBuffer, s string) {
 				continue
 			}
 			if start < i {
-				buf.WriteString(s[start:i])
+				buf.AppendString(s[start:i])
 			}
 			switch b {
 			case '\\', '"':
-				buf.WriteByte('\\')
-				buf.WriteByte(b)
+				buf.AppendByte('\\')
+				buf.AppendByte(b)
 			case '\n':
-				buf.WriteByte('\\')
-				buf.WriteByte('n')
+				buf.AppendByte('\\')
+				buf.AppendByte('n')
 			case '\r':
-				buf.WriteByte('\\')
-				buf.WriteByte('r')
+				buf.AppendByte('\\')
+				buf.AppendByte('r')
 			case '\t':
-				buf.WriteByte('\\')
-				buf.WriteByte('t')
+				buf.AppendByte('\\')
+				buf.AppendByte('t')
 			default:
 				// This encodes bytes < 0x20 except for \n, \r, and \t.
-				buf.WriteString(`\u00`)
-				buf.WriteByte(hex[b>>4])
-				buf.WriteByte(hex[b&0xF])
+				buf.AppendString(`\u00`)
+				buf.AppendByte(hex[b>>4])
+				buf.AppendByte(hex[b&0xF])
 			}
 			i++
 			start = i
@@ -362,9 +362,9 @@ func writeQuotedString(buf *byteBuffer, s string) {
 		c, size := utf8.DecodeRuneInString(s[i:])
 		if c == utf8.RuneError {
 			if start < i {
-				buf.WriteString(s[start:i])
+				buf.AppendString(s[start:i])
 			}
-			buf.WriteString(`\ufffd`)
+			buf.AppendString(`\ufffd`)
 			i += size
 			start = i
 			continue
@@ -372,7 +372,7 @@ func writeQuotedString(buf *byteBuffer, s string) {
 		i += size
 	}
 	if start < len(s) {
-		buf.WriteString(s[start:])
+		buf.AppendString(s[start:])
 	}
-	buf.WriteByte('"')
+	buf.AppendByte('"')
 }
