@@ -1,3 +1,5 @@
+<a href="https://zerodha.tech"><img src="https://zerodha.tech/static/images/github-badge.svg" align="right" /></a>
+
 # logf
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/mr-karan/logf.svg)](https://pkg.go.dev/github.com/mr-karan/logf)
