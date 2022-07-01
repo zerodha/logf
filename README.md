@@ -2,9 +2,9 @@
 
 # logf
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/mr-karan/logf.svg)](https://pkg.go.dev/github.com/mr-karan/logf)
-[![Go Report Card](https://goreportcard.com/badge/mr-karan/logf)](https://goreportcard.com/report/mr-karan/logf)
-[![GitHub Actions](https://github.com/mr-karan/logf/actions/workflows/build.yml/badge.svg)](https://github.com/mr-karan/logf/actions/workflows/build.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/zerodha/logf.svg)](https://pkg.go.dev/github.com/zerodha/logf)
+[![Go Report Card](https://goreportcard.com/badge/zerodha/logf)](https://goreportcard.com/report/zerodha/logf)
+[![GitHub Actions](https://github.com/zerodha/logf/actions/workflows/build.yml/badge.svg)](https://github.com/zerodha/logf/actions/workflows/build.yml)
 
 
 logf is a **high performance** logging library for Go applications with a **minimal** API overhead. It emits **structured logs** ([`logfmt`](https://brandur.org/logfmt) style) in human readable and machine friendly way. `logf` aims to be customisable without providing an overwhelming amount of things to configure.
@@ -18,7 +18,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/mr-karan/logf"
+	"github.com/zerodha/logf"
 )
 
 func main() {

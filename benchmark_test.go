@@ -5,7 +5,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/mr-karan/logf"
+	"github.com/zerodha/logf"
 )
 
 func BenchmarkNoField(b *testing.B) {

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/mr-karan/logf"
+	"github.com/zerodha/logf"
 )
 
 func main() {
