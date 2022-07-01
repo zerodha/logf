@@ -1,5 +1,7 @@
 package logf
 
+import "os"
+
 type FieldLogger struct {
 	fields Fields
 	logger *Logger
@@ -22,4 +24,11 @@ func (l *FieldLogger) Warn(msg string) {
 // Error emits an error log line.
 func (l *FieldLogger) Error(msg string) {
 	l.logger.handleLog(msg, ErrorLevel, l.fields)
+}
+
+// Fatal emits a fatal level log line.
+// It aborts the current program with an exit code of 1.
+func (l *FieldLogger) Fatal(msg string) {
+	l.logger.handleLog(msg, ErrorLevel, l.fields)
+	os.Exit(1)
 }
