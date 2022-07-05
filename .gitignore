@@ -21,3 +21,5 @@ data/
 dist/
 .vscode/
 coverage.txt
+
+*.png

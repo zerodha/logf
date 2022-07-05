@@ -45,7 +45,10 @@ type Opts struct {
 
 // Fields is a map of arbitrary KV pairs
 // which will be used in logfmt representation of the log.
-type Fields map[string]any
+type F struct {
+	K string
+	V any
+}
 
 // Severity level of the log.
 type Level int
@@ -139,33 +142,33 @@ func (l *Logger) SetCallerFrame(caller bool, depth int) {
 
 // Debug emits a debug log line.
 func (l *Logger) Debug(msg string) {
-	l.handleLog(msg, DebugLevel, nil)
+	l.handleLog(msg, DebugLevel)
 }
 
 // Info emits a info log line.
 func (l *Logger) Info(msg string) {
-	l.handleLog(msg, InfoLevel, nil)
+	l.handleLog(msg, InfoLevel)
 }
 
 // Warn emits a warning log line.
 func (l *Logger) Warn(msg string) {
-	l.handleLog(msg, WarnLevel, nil)
+	l.handleLog(msg, WarnLevel)
 }
 
 // Error emits an error log line.
 func (l *Logger) Error(msg string) {
-	l.handleLog(msg, ErrorLevel, nil)
+	l.handleLog(msg, ErrorLevel)
 }
 
 // Fatal emits a fatal level log line.
 // It aborts the current program with an exit code of 1.
 func (l *Logger) Fatal(msg string) {
-	l.handleLog(msg, FatalLevel, nil)
+	l.handleLog(msg, FatalLevel)
 	os.Exit(1)
 }
 
 // WithFields returns a new entry with `fields` set.
-func (l *Logger) WithFields(fields Fields) *FieldLogger {
+func (l *Logger) WithFields(fields ...F) *FieldLogger {
 	fl := &FieldLogger{
 		fields: fields,
 		logger: l,
@@ -179,14 +182,12 @@ func (l *Logger) WithError(err error) *FieldLogger {
 		return &FieldLogger{logger: l}
 	}
 
-	return l.WithFields(Fields{
-		"error": err.Error(),
-	})
+	return l.WithFields(F{"error", err.Error()})
 }
 
 // handleLog emits the log after filtering log level
 // and applying formatting of the fields.
-func (l *Logger) handleLog(msg string, lvl Level, fields Fields) {
+func (l *Logger) handleLog(msg string, lvl Level, fields ...F) {
 	// Discard the log if the verbosity is higher.
 	// For eg, if the lvl is `3` (error), but the incoming message is `0` (debug), skip it.
 	if lvl < l.level {
@@ -207,12 +208,12 @@ func (l *Logger) handleLog(msg string, lvl Level, fields Fields) {
 
 	// Format the line as logfmt.
 	var count int // count is find out if this is the last key in while itering fields.
-	for k, v := range fields {
+	for _, v := range fields {
 		space := false
 		if count != len(fields)-1 {
 			space = true
 		}
-		writeToBuf(buf, k, v, lvl, l.enableColor, space)
+		writeToBuf(buf, v.K, v.V, lvl, l.enableColor, space)
 		count++
 	}
 	buf.AppendString("\n")

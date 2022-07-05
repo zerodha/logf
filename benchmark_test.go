@@ -27,7 +27,7 @@ func BenchmarkOneField(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			logger.WithFields(logf.Fields{"stack": "testing"}).Info("hello world")
+			logger.WithFields(logf.F{"stack", "testing"}).Info("hello world")
 		}
 	})
 }
@@ -40,11 +40,11 @@ func BenchmarkThreeFields(b *testing.B) {
 
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			logger.WithFields(logf.Fields{
-				"component": "api",
-				"method":    "GET",
-				"bytes":     1 << 18,
-			}).Info("request completed")
+			logger.WithFields([]logf.F{
+				{"component", "api"},
+				{"method", "GET"},
+				{"bytes", 1 << 18},
+			}...).Info("request completed")
 		}
 	})
 }
@@ -72,18 +72,18 @@ func BenchmarkHugePayload(b *testing.B) {
 
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			logger.WithFields(logf.Fields{
-				"id":                 11,
-				"title":              "perfume Oil",
-				"description":        "Mega Discount, Impression of A...",
-				"price":              13,
-				"discountPercentage": 8.4,
-				"rating":             4.26,
-				"stock":              65,
-				"brand":              "Impression of Acqua Di Gio",
-				"category":           "fragrances",
-				"thumbnail":          "https://dummyjson.com/image/i/products/11/thumbnail.jpg",
-			}).Info("fetched details")
+			logger.WithFields([]logf.F{
+				{"id", 11},
+				{"title", "perfume Oil"},
+				{"description", "Mega Discount, Impression of A..."},
+				{"price", 13},
+				{"discountPercentage", 8.4},
+				{"rating", 4.26},
+				{"stock", 65},
+				{"brand", "Impression of Acqua Di Gio"},
+				{"category", "fragrances"},
+				{"thumbnail", "https://dummyjson.com/image/i/products/11/thumbnail.jpg"},
+			}...).Info("fetched details")
 		}
 	})
 }
@@ -97,11 +97,11 @@ func BenchmarkThreeFields_WithCaller(b *testing.B) {
 
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			logger.WithFields(logf.Fields{
-				"component": "api",
-				"method":    "GET",
-				"bytes":     1 << 18,
-			}).Info("request completed")
+			logger.WithFields([]logf.F{
+				{"component", "api"},
+				{"method", "GET"},
+				{"bytes", 1 << 18},
+			}...).Info("request completed")
 		}
 	})
 }
@@ -128,7 +128,7 @@ func BenchmarkOneField_WithColor(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			logger.WithFields(logf.Fields{"stack": "testing"}).Info("hello world")
+			logger.WithFields(logf.F{"stack", "testing"}).Info("hello world")
 		}
 	})
 }
@@ -142,11 +142,11 @@ func BenchmarkThreeFields_WithColor(b *testing.B) {
 
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			logger.WithFields(logf.Fields{
-				"component": "api",
-				"method":    "GET",
-				"bytes":     1 << 18,
-			}).Info("request completed")
+			logger.WithFields([]logf.F{
+				{"component", "api"},
+				{"method", "GET"},
+				{"bytes", 1 << 18},
+			}...).Info("request completed")
 		}
 	})
 }
@@ -176,18 +176,18 @@ func BenchmarkHugePayload_WithColor(b *testing.B) {
 
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			logger.WithFields(logf.Fields{
-				"id":                 11,
-				"title":              "perfume Oil",
-				"description":        "Mega Discount, Impression of A...",
-				"price":              13,
-				"discountPercentage": 8.4,
-				"rating":             4.26,
-				"stock":              65,
-				"brand":              "Impression of Acqua Di Gio",
-				"category":           "fragrances",
-				"thumbnail":          "https://dummyjson.com/image/i/products/11/thumbnail.jpg",
-			}).Info("fetched details")
+			logger.WithFields([]logf.F{
+				{"id", 11},
+				{"title", "perfume Oil"},
+				{"description", "Mega Discount, Impression of A..."},
+				{"price", 13},
+				{"discountPercentage", 8.4},
+				{"rating", 4.26},
+				{"stock", 65},
+				{"brand", "Impression of Acqua Di Gio"},
+				{"category", "fragrances"},
+				{"thumbnail", "https://dummyjson.com/image/i/products/11/thumbnail.jpg"},
+			}...).Info("fetched details")
 		}
 	})
 }
