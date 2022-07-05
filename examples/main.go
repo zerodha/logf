@@ -2,13 +2,14 @@ package main
 
 import (
 	"errors"
+	"os"
 	"time"
 
 	"github.com/zerodha/logf"
 )
 
 func main() {
-	logger := logf.New()
+	logger := logf.New(os.Stderr)
 
 	// Basic log.
 	logger.Info("starting app")

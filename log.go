@@ -26,25 +26,12 @@ var (
 // Logger is the interface for all log operations
 // related to emitting logs.
 type Logger struct {
-	mu                   sync.Mutex // Atomic writes.
-	out                  io.Writer  // Output destination.
-	level                Level      // Verbosity of logs.
-	tsFormat             string     // Timestamp format.
-	enableColor          bool       // Colored output.
-	enableCaller         bool       // Print caller information.
-	callerSkipFrameCount int        // Number of frames to skip when detecting caller
-}
-
-// Opts represents various properties
-// to configure logger.
-type Opts struct {
-	Writer          io.Writer
-	Lvl             Level
-	TimestampFormat string
-	EnableColor     bool
-	EnableCaller    bool
-	// CallerSkipFrameCount is the count of the number of frames to skip when computing the file name and line number
-	CallerSkipFrameCount int
+	out                  io.Writer // Output destination.
+	level                Level     // Verbosity of logs.
+	tsFormat             string    // Timestamp format.
+	enableColor          bool      // Colored output.
+	enableCaller         bool      // Print caller information.
+	callerSkipFrameCount int       // Number of frames to skip when detecting caller
 }
 
 // Fields is a map of arbitrary KV pairs
@@ -82,16 +69,45 @@ var colorLvlMap = [...]string{
 
 // New instantiates a logger object.
 // It writes to `stderr` as the default and it's non configurable.
-func New() *Logger {
+func New(out io.Writer) Logger {
 	// Initialise logger with sane defaults.
-	return &Logger{
-		out:                  os.Stderr,
+	if out == nil {
+		out = os.Stderr
+	}
+
+	return Logger{
+		out:                  newSyncWriter(out),
 		level:                InfoLevel,
 		tsFormat:             defaultTSFormat,
 		enableColor:          false,
 		enableCaller:         false,
 		callerSkipFrameCount: 0,
 	}
+}
+
+// syncWriter is a wrapper around io.Writer that
+// synchronizes writes using a mutex.
+type syncWriter struct {
+	sync.Mutex
+	w io.Writer
+}
+
+// Write synchronously to the underlying io.Writer.
+func (w *syncWriter) Write(p []byte) (int, error) {
+	w.Lock()
+	n, err := w.w.Write(p)
+	w.Unlock()
+	return n, err
+}
+
+// newSyncWriter wraps an io.Writer with syncWriter. It can
+// be used as an io.Writer as syncWriter satisfies the io.Writer interface.
+func newSyncWriter(in io.Writer) *syncWriter {
+	if in == nil {
+		return &syncWriter{w: os.Stderr}
+	}
+
+	return &syncWriter{w: in}
 }
 
 // String representation of the log severity.
@@ -114,73 +130,75 @@ func (l Level) String() string {
 
 // SetLevel sets the verbosity for logger.
 // Verbosity can be dynamically changed by the caller.
-func (l *Logger) SetLevel(lvl Level) {
+func (l Logger) SetLevel(lvl Level) Logger {
 	l.level = lvl
+	return l
 }
 
 // SetWriter sets the output writer for the logger
-func (l *Logger) SetWriter(w io.Writer) {
-	l.mu.Lock()
-	l.out = w
-	l.mu.Unlock()
+func (l Logger) SetWriter(w io.Writer) Logger {
+	l.out = &syncWriter{w: w}
+	return l
 }
 
 // SetTimestampFormat sets the timestamp format for the `timestamp` key.
-func (l *Logger) SetTimestampFormat(f string) {
+func (l Logger) SetTimestampFormat(f string) Logger {
 	l.tsFormat = f
+	return l
 }
 
 // SetColorOutput enables/disables colored output.
-func (l *Logger) SetColorOutput(color bool) {
+func (l Logger) SetColorOutput(color bool) Logger {
 	l.enableColor = color
+	return l
 }
 
 // SetCallerFrame enables/disables the caller source in the log line.
-func (l *Logger) SetCallerFrame(caller bool, depth int) {
+func (l Logger) SetCallerFrame(caller bool, depth int) Logger {
 	l.enableCaller = caller
 	l.callerSkipFrameCount = depth
+	return l
 }
 
 // Debug emits a debug log line.
-func (l *Logger) Debug(msg string) {
+func (l Logger) Debug(msg string) {
 	l.handleLog(msg, DebugLevel, nil)
 }
 
 // Info emits a info log line.
-func (l *Logger) Info(msg string) {
+func (l Logger) Info(msg string) {
 	l.handleLog(msg, InfoLevel, nil)
 }
 
 // Warn emits a warning log line.
-func (l *Logger) Warn(msg string) {
+func (l Logger) Warn(msg string) {
 	l.handleLog(msg, WarnLevel, nil)
 }
 
 // Error emits an error log line.
-func (l *Logger) Error(msg string) {
+func (l Logger) Error(msg string) {
 	l.handleLog(msg, ErrorLevel, nil)
 }
 
 // Fatal emits a fatal level log line.
 // It aborts the current program with an exit code of 1.
-func (l *Logger) Fatal(msg string) {
+func (l Logger) Fatal(msg string) {
 	l.handleLog(msg, FatalLevel, nil)
 	os.Exit(1)
 }
 
 // WithFields returns a new entry with `fields` set.
-func (l *Logger) WithFields(fields Fields) *FieldLogger {
-	fl := &FieldLogger{
+func (l Logger) WithFields(fields Fields) FieldLogger {
+	return FieldLogger{
 		fields: fields,
 		logger: l,
 	}
-	return fl
 }
 
 // WithError returns a Logger with the "error" key set to `err`.
-func (l *Logger) WithError(err error) *FieldLogger {
+func (l Logger) WithError(err error) FieldLogger {
 	if err == nil {
-		return &FieldLogger{logger: l}
+		return FieldLogger{logger: l}
 	}
 
 	return l.WithFields(Fields{
@@ -190,7 +208,7 @@ func (l *Logger) WithError(err error) *FieldLogger {
 
 // handleLog emits the log after filtering log level
 // and applying formatting of the fields.
-func (l *Logger) handleLog(msg string, lvl Level, fields Fields) {
+func (l Logger) handleLog(msg string, lvl Level, fields Fields) {
 	// Discard the log if the verbosity is higher.
 	// For eg, if the lvl is `3` (error), but the incoming message is `0` (debug), skip it.
 	if lvl < l.level {
@@ -221,13 +239,11 @@ func (l *Logger) handleLog(msg string, lvl Level, fields Fields) {
 	}
 	buf.AppendString("\n")
 
-	l.mu.Lock()
 	_, err := l.out.Write(buf.Bytes())
 	if err != nil {
 		// Should ideally never happen.
 		stdlog.Printf("error logging: %v", err)
 	}
-	l.mu.Unlock()
 
 	buf.Reset()
 

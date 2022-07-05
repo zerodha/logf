@@ -9,8 +9,7 @@ import (
 )
 
 func BenchmarkNoField(b *testing.B) {
-	logger := logf.New()
-	logger.SetWriter(io.Discard)
+	logger := logf.New(io.Discard)
 	b.ReportAllocs()
 	b.ResetTimer()
 	b.RunParallel(func(p *testing.PB) {
@@ -21,8 +20,7 @@ func BenchmarkNoField(b *testing.B) {
 }
 
 func BenchmarkOneField(b *testing.B) {
-	logger := logf.New()
-	logger.SetWriter(io.Discard)
+	logger := logf.New(io.Discard)
 	b.ReportAllocs()
 	b.ResetTimer()
 	b.RunParallel(func(p *testing.PB) {
@@ -33,8 +31,7 @@ func BenchmarkOneField(b *testing.B) {
 }
 
 func BenchmarkThreeFields(b *testing.B) {
-	logger := logf.New()
-	logger.SetWriter(io.Discard)
+	logger := logf.New(io.Discard)
 	b.ReportAllocs()
 	b.ResetTimer()
 
@@ -50,8 +47,7 @@ func BenchmarkThreeFields(b *testing.B) {
 }
 
 func BenchmarkErrorField(b *testing.B) {
-	logger := logf.New()
-	logger.SetWriter(io.Discard)
+	logger := logf.New(io.Discard)
 	b.ReportAllocs()
 	b.ResetTimer()
 
@@ -65,8 +61,7 @@ func BenchmarkErrorField(b *testing.B) {
 }
 
 func BenchmarkHugePayload(b *testing.B) {
-	logger := logf.New()
-	logger.SetWriter(io.Discard)
+	logger := logf.New(io.Discard)
 	b.ReportAllocs()
 	b.ResetTimer()
 
@@ -89,8 +84,7 @@ func BenchmarkHugePayload(b *testing.B) {
 }
 
 func BenchmarkThreeFields_WithCaller(b *testing.B) {
-	logger := logf.New()
-	logger.SetWriter(io.Discard)
+	logger := logf.New(io.Discard)
 	logger.SetCallerFrame(true, 3)
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -107,8 +101,7 @@ func BenchmarkThreeFields_WithCaller(b *testing.B) {
 }
 
 func BenchmarkNoField_WithColor(b *testing.B) {
-	logger := logf.New()
-	logger.SetWriter(io.Discard)
+	logger := logf.New(io.Discard)
 	logger.SetColorOutput(true)
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -121,8 +114,7 @@ func BenchmarkNoField_WithColor(b *testing.B) {
 }
 
 func BenchmarkOneField_WithColor(b *testing.B) {
-	logger := logf.New()
-	logger.SetWriter(io.Discard)
+	logger := logf.New(io.Discard)
 	logger.SetColorOutput(true)
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -134,8 +126,7 @@ func BenchmarkOneField_WithColor(b *testing.B) {
 }
 
 func BenchmarkThreeFields_WithColor(b *testing.B) {
-	logger := logf.New()
-	logger.SetWriter(io.Discard)
+	logger := logf.New(io.Discard)
 	logger.SetColorOutput(true)
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -152,8 +143,7 @@ func BenchmarkThreeFields_WithColor(b *testing.B) {
 }
 
 func BenchmarkErrorField_WithColor(b *testing.B) {
-	logger := logf.New()
-	logger.SetWriter(io.Discard)
+	logger := logf.New(io.Discard)
 	logger.SetColorOutput(true)
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -168,8 +158,7 @@ func BenchmarkErrorField_WithColor(b *testing.B) {
 }
 
 func BenchmarkHugePayload_WithColor(b *testing.B) {
-	logger := logf.New()
-	logger.SetWriter(io.Discard)
+	logger := logf.New(io.Discard)
 	logger.SetColorOutput(true)
 	b.ReportAllocs()
 	b.ResetTimer()
