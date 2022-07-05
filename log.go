@@ -1,13 +1,13 @@
 package logf
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	stdlog "log"
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -294,7 +294,7 @@ func writeToBuf(buf *byteBuffer, key string, val any, lvl Level, color, space bo
 
 // escapeAndWriteString escapes the string if any unwanted chars are there.
 func escapeAndWriteString(buf *byteBuffer, s string) {
-	idx := bytes.IndexFunc([]byte(s), checkEscapingRune)
+	idx := strings.IndexFunc(s, checkEscapingRune)
 	if idx != -1 {
 		writeQuotedString(buf, s)
 		return
