@@ -13,11 +13,15 @@ import (
 	"unicode/utf8"
 )
 
-var hex = "0123456789abcdef"
+const (
+	tsKey           = "timestamp="
+	defaultTSFormat = "2006-01-02T15:04:05.999Z"
+)
 
-const tsKey = "timestamp="
-
-var bufPool byteBufferPool
+var (
+	hex     = "0123456789abcdef"
+	bufPool byteBufferPool
+)
 
 // Logger is the interface for all log operations
 // related to emitting logs.
@@ -83,7 +87,7 @@ func New() *Logger {
 	return &Logger{
 		out:                  os.Stderr,
 		level:                InfoLevel,
-		tsFormat:             time.RFC3339,
+		tsFormat:             defaultTSFormat,
 		enableColor:          false,
 		enableCaller:         false,
 		callerSkipFrameCount: 0,

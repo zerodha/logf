@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -43,7 +42,7 @@ func TestNewLoggerDefault(t *testing.T) {
 	assert.Equal(t, l.enableColor, false, "color output is disabled")
 	assert.Equal(t, l.enableCaller, false, "caller is disabled")
 	assert.Equal(t, l.callerSkipFrameCount, 0, "skip frame count is 0")
-	assert.Equal(t, l.tsFormat, time.RFC3339, "timestamp format is RFC3399")
+	assert.Equal(t, l.tsFormat, defaultTSFormat, "timestamp format is default")
 }
 
 func TestLogFormat(t *testing.T) {
