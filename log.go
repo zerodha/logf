@@ -15,6 +15,7 @@ import (
 
 const (
 	tsKey           = "timestamp="
+	scopeKey        = "sc"
 	defaultTSFormat = "2006-01-02T15:04:05.999Z07:00"
 )
 
@@ -31,7 +32,8 @@ type Logger struct {
 	tsFormat             string    // Timestamp format.
 	enableColor          bool      // Colored output.
 	enableCaller         bool      // Print caller information.
-	callerSkipFrameCount int       // Number of frames to skip when detecting caller
+	callerSkipFrameCount int       // Number of frames to skip when detecting caller.
+	scope                string    // Scope is a namespace which is included in every log under the `scopeKey`.
 }
 
 // Fields is a map of arbitrary KV pairs
@@ -82,6 +84,7 @@ func New(out io.Writer) Logger {
 		enableColor:          false,
 		enableCaller:         false,
 		callerSkipFrameCount: 0,
+		scope:                "general",
 	}
 }
 
@@ -160,6 +163,11 @@ func (l Logger) SetCallerFrame(caller bool, depth int) Logger {
 	return l
 }
 
+// SetScope adds the namespace in the log line.
+func (l *Logger) SetScope(scope string) {
+	l.scope = scope
+}
+
 // Debug emits a debug log line.
 func (l Logger) Debug(msg string) {
 	l.handleLog(msg, DebugLevel, nil)
@@ -222,6 +230,7 @@ func (l Logger) handleLog(msg string, lvl Level, fields Fields) {
 	writeTimeToBuf(buf, l.tsFormat, lvl, l.enableColor)
 	writeToBuf(buf, "level", lvl, lvl, l.enableColor, true)
 	writeStringToBuf(buf, "message", msg, lvl, l.enableColor, true)
+	writeStringToBuf(buf, scopeKey, l.scope, lvl, l.enableColor, true)
 
 	if l.enableCaller {
 		writeToBuf(buf, "caller", caller(l.callerSkipFrameCount), lvl, l.enableColor, true)

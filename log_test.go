@@ -50,10 +50,11 @@ func TestLogFormat(t *testing.T) {
 	buf := &bytes.Buffer{}
 	l := New(buf)
 	l.SetColorOutput(false)
+	l.SetScope("testing")
 
 	// Info log.
 	l.Info("hello world")
-	assert.Contains(t, buf.String(), `level=info message="hello world"`, "info log")
+	assert.Contains(t, buf.String(), `level=info message="hello world" sc=testing`, "info log")
 	buf.Reset()
 
 	// Log with field.
@@ -63,7 +64,7 @@ func TestLogFormat(t *testing.T) {
 	fl := l.WithFields(fields)
 	assert.Equal(t, fl.fields, fields)
 	fl.Warn("testing fields")
-	assert.Contains(t, buf.String(), `level=warn message="testing fields" stack=testing`, "warning log")
+	assert.Contains(t, buf.String(), `level=warn message="testing fields" sc=testing stack=testing`, "warning log")
 	buf.Reset()
 
 	// Log with error.
@@ -72,7 +73,7 @@ func TestLogFormat(t *testing.T) {
 	// Check if error key exists.
 	assert.Equal(t, el.fields["error"], fakeErr.Error())
 	el.Error("testing error")
-	assert.Contains(t, buf.String(), `level=error message="testing error" error="this is a fake error"`, "error log")
+	assert.Contains(t, buf.String(), `level=error message="testing error" sc=testing error="this is a fake error"`, "error log")
 	buf.Reset()
 }
 
