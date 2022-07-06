@@ -3,6 +3,7 @@ package logf
 import (
 	"bytes"
 	"errors"
+	"os"
 	"strconv"
 	"sync"
 	"testing"
@@ -37,7 +38,7 @@ func TestLevelParsing(t *testing.T) {
 }
 
 func TestNewLoggerDefault(t *testing.T) {
-	l := New()
+	l := New(os.Stderr)
 	assert.Equal(t, l.level, InfoLevel, "level is info")
 	assert.Equal(t, l.enableColor, false, "color output is disabled")
 	assert.Equal(t, l.enableCaller, false, "caller is disabled")
@@ -47,8 +48,7 @@ func TestNewLoggerDefault(t *testing.T) {
 
 func TestLogFormat(t *testing.T) {
 	buf := &bytes.Buffer{}
-	l := New()
-	l.SetWriter(buf)
+	l := New(buf)
 	l.SetColorOutput(false)
 
 	// Info log.
@@ -79,8 +79,7 @@ func TestLogFormat(t *testing.T) {
 // These test are typically meant to be run with the data race detector.
 func TestLoggerConcurrency(t *testing.T) {
 	buf := &bytes.Buffer{}
-	l := New()
-	l.SetWriter(buf)
+	l := New(buf)
 	l.SetColorOutput(false)
 
 	for _, n := range []int{10, 100, 1000} {
@@ -93,7 +92,7 @@ func TestLoggerConcurrency(t *testing.T) {
 	}
 }
 
-func genLogs(l *Logger) {
+func genLogs(l Logger) {
 	for i := 0; i < 100; i++ {
 		l.WithFields(Fields{"index": strconv.FormatInt(int64(i), 10)}).Info("random log")
 	}
