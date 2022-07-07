@@ -290,6 +290,8 @@ func writeToBuf(buf *byteBuffer, key string, val any, lvl Level, color, space bo
 		buf.AppendFloat(float64(v), 32)
 	case float64:
 		buf.AppendFloat(float64(v), 64)
+	case error:
+		escapeAndWriteString(buf, v.Error())
 	case fmt.Stringer:
 		escapeAndWriteString(buf, v.String())
 	default:
