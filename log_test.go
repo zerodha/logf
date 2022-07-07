@@ -57,22 +57,25 @@ func TestLogFormat(t *testing.T) {
 	buf.Reset()
 
 	// Log with field.
-	fields := Fields{
-		"stack": "testing",
-	}
-	fl := l.WithFields(fields)
-	assert.Equal(t, fl.fields, fields)
-	fl.Warn("testing fields")
+	l.Warn("testing fields", "stack", "testing")
 	assert.Contains(t, buf.String(), `level=warn message="testing fields" stack=testing`, "warning log")
 	buf.Reset()
 
 	// Log with error.
 	fakeErr := errors.New("this is a fake error")
-	el := l.WithError(fakeErr)
-	// Check if error key exists.
-	assert.Equal(t, el.fields["error"], fakeErr.Error())
-	el.Error("testing error")
+	l.Error("testing error", "error", fakeErr)
 	assert.Contains(t, buf.String(), `level=error message="testing error" error="this is a fake error"`, "error log")
+	buf.Reset()
+}
+
+func TestOddNumberedFields(t *testing.T) {
+	buf := &bytes.Buffer{}
+	l := New(buf)
+	l.SetColorOutput(false)
+
+	// Give a odd number of fields.
+	l.Info("hello world", "key1", "val1", "key2")
+	assert.Contains(t, buf.String(), `level=info message="hello world" key1=val1`)
 	buf.Reset()
 }
 
@@ -94,6 +97,6 @@ func TestLoggerConcurrency(t *testing.T) {
 
 func genLogs(l Logger) {
 	for i := 0; i < 100; i++ {
-		l.WithFields(Fields{"index": strconv.FormatInt(int64(i), 10)}).Info("random log")
+		l.Info("random log", "index", strconv.FormatInt(int64(i), 10))
 	}
 }
