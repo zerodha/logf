@@ -213,7 +213,6 @@ func (l Logger) handleLog(msg string, lvl Level, fields ...any) {
 	)
 
 	// If there are odd number of fields, ignore the last.
-	// TODO: Should we not ignore the last key here.
 	if len(fields)%2 != 0 {
 		fields = fields[0 : len(fields)-1]
 	}
