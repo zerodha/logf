@@ -82,22 +82,22 @@ You can run benchmarks with `make bench`.
 ### No Colors (Default)
 
 ```
-BenchmarkNoField-8                       6580035               162.9 ns/op             0 B/op          0 allocs/op
-BenchmarkOneField-8                      7279341               161.0 ns/op             0 B/op          0 allocs/op
-BenchmarkThreeFields-8                   5310399               238.3 ns/op             0 B/op          0 allocs/op
-BenchmarkErrorField-8                    4615491               221.6 ns/op            16 B/op          1 allocs/op
-BenchmarkHugePayload-8                   3401349               499.7 ns/op             0 B/op          0 allocs/op
-BenchmarkThreeFields_WithCaller-8        1687275               672.6 ns/op           216 B/op          2 allocs/op
+BenchmarkNoField-8                       7884771               144.2 ns/op             0 B/op          0 allocs/op
+BenchmarkOneField-8                      6251565               186.7 ns/op             0 B/op          0 allocs/op
+BenchmarkThreeFields-8                   6273717               188.2 ns/op             0 B/op          0 allocs/op
+BenchmarkErrorField-8                    6687260               174.8 ns/op             0 B/op          0 allocs/op
+BenchmarkHugePayload-8                   3395139               360.3 ns/op             0 B/op          0 allocs/op
+BenchmarkThreeFields_WithCaller-8        2764860               437.9 ns/op           216 B/op          2 allocs/op
 ```
 
 ### With Colors
 
 ```
-BenchmarkNoField_WithColor-8             4211680               271.7 ns/op             0 B/op          0 allocs/op
-BenchmarkOneField_WithColor-8            3775146               294.4 ns/op             0 B/op          0 allocs/op
-BenchmarkThreeFields_WithColor-8         3129200               378.6 ns/op             0 B/op          0 allocs/op
-BenchmarkErrorField_WithColor-8          3157008               379.8 ns/op            16 B/op          1 allocs/op
-BenchmarkHugePayload_WithColor-8         1617369               792.0 ns/op             0 B/op          0 allocs/op
+BenchmarkNoField_WithColor-8             6501867               186.6 ns/op             0 B/op          0 allocs/op
+BenchmarkOneField_WithColor-8            5938155               205.7 ns/op             0 B/op          0 allocs/op
+BenchmarkThreeFields_WithColor-8         4613145               379.4 ns/op             0 B/op          0 allocs/op
+BenchmarkErrorField_WithColor-8          3512522               353.6 ns/op             0 B/op          0 allocs/op
+BenchmarkHugePayload_WithColor-8         1520659               799.5 ns/op             0 B/op          0 allocs/op
 ```
 
 For a comparison with existing popular libs, visit [uber-go/zap#performance](https://github.com/uber-go/zap#performance).
