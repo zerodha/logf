@@ -1,12 +1,14 @@
 <a href="https://zerodha.tech"><img src="https://zerodha.tech/static/images/github-badge.svg" align="right" /></a>
 
-# logf
+# logf 💥
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/zerodha/logf.svg)](https://pkg.go.dev/github.com/zerodha/logf)
 [![Go Report Card](https://goreportcard.com/badge/zerodha/logf)](https://goreportcard.com/report/zerodha/logf)
 [![GitHub Actions](https://github.com/zerodha/logf/actions/workflows/build.yml/badge.svg)](https://github.com/zerodha/logf/actions/workflows/build.yml)
 
-logf is a **high performance**, **zero alloc** logging library for Go applications with a **minimal** API overhead. It emits **structured logs** ([`logfmt`](https://brandur.org/logfmt) style) in human readable and machine friendly way. `logf` aims to be customisable without providing an overwhelming amount of things to configure.
+`logf` is a **high performance**, **zero alloc** logging library for Go applications with a _minimal_ API overhead. It's also the **fastest** logfmt logging library for Go.
+
+`logf` emits **structured logs** ([`logfmt`](https://brandur.org/logfmt) style) in human readable and machine friendly way.
 
 ## Example
 
@@ -101,7 +103,7 @@ For a comparison with existing popular libs, visit [uber-go/zap#performance](htt
 
 ## Contributors
 
-- [Sarat](https://github.com/iamd3vil/)
+https://github.com/zerodha/logf/graphs/contributors
 
 ## LICENSE
 
