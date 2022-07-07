@@ -3,7 +3,6 @@ package logf
 import (
 	"bytes"
 	"errors"
-	"os"
 	"strconv"
 	"sync"
 	"testing"
@@ -38,18 +37,17 @@ func TestLevelParsing(t *testing.T) {
 }
 
 func TestNewLoggerDefault(t *testing.T) {
-	l := New(os.Stderr)
-	assert.Equal(t, l.level, InfoLevel, "level is info")
-	assert.Equal(t, l.enableColor, false, "color output is disabled")
-	assert.Equal(t, l.enableCaller, false, "caller is disabled")
-	assert.Equal(t, l.callerSkipFrameCount, 0, "skip frame count is 0")
-	assert.Equal(t, l.tsFormat, defaultTSFormat, "timestamp format is default")
+	l := New(Opts{})
+	assert.Equal(t, l.Opts.Level, InfoLevel, "level is info")
+	assert.Equal(t, l.Opts.EnableColor, false, "color output is disabled")
+	assert.Equal(t, l.Opts.EnableCaller, false, "caller is disabled")
+	assert.Equal(t, l.Opts.CallerSkipFrameCount, 0, "skip frame count is 0")
+	assert.Equal(t, l.Opts.TimestampFormat, defaultTSFormat, "timestamp format is default")
 }
 
 func TestLogFormat(t *testing.T) {
 	buf := &bytes.Buffer{}
-	l := New(buf)
-	l.SetColorOutput(false)
+	l := New(Opts{Writer: buf})
 
 	// Info log.
 	l.Info("hello world")
@@ -70,8 +68,7 @@ func TestLogFormat(t *testing.T) {
 
 func TestOddNumberedFields(t *testing.T) {
 	buf := &bytes.Buffer{}
-	l := New(buf)
-	l.SetColorOutput(false)
+	l := New(Opts{Writer: buf})
 
 	// Give a odd number of fields.
 	l.Info("hello world", "key1", "val1", "key2")
@@ -82,8 +79,7 @@ func TestOddNumberedFields(t *testing.T) {
 // These test are typically meant to be run with the data race detector.
 func TestLoggerConcurrency(t *testing.T) {
 	buf := &bytes.Buffer{}
-	l := New(buf)
-	l.SetColorOutput(false)
+	l := New(Opts{Writer: buf})
 
 	for _, n := range []int{10, 100, 1000} {
 		wg := sync.WaitGroup{}
