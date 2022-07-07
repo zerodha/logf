@@ -34,10 +34,6 @@ type Logger struct {
 	callerSkipFrameCount int       // Number of frames to skip when detecting caller
 }
 
-// Fields is a map of arbitrary KV pairs
-// which will be used in logfmt representation of the log.
-type Fields map[string]any
-
 // Severity level of the log.
 type Level int
 
@@ -161,54 +157,35 @@ func (l Logger) SetCallerFrame(caller bool, depth int) Logger {
 }
 
 // Debug emits a debug log line.
-func (l Logger) Debug(msg string) {
-	l.handleLog(msg, DebugLevel, nil)
+func (l Logger) Debug(msg string, fields ...any) {
+	l.handleLog(msg, DebugLevel, fields...)
 }
 
 // Info emits a info log line.
-func (l Logger) Info(msg string) {
-	l.handleLog(msg, InfoLevel, nil)
+func (l Logger) Info(msg string, fields ...any) {
+	l.handleLog(msg, InfoLevel, fields...)
 }
 
 // Warn emits a warning log line.
-func (l Logger) Warn(msg string) {
-	l.handleLog(msg, WarnLevel, nil)
+func (l Logger) Warn(msg string, fields ...any) {
+	l.handleLog(msg, WarnLevel, fields...)
 }
 
 // Error emits an error log line.
-func (l Logger) Error(msg string) {
-	l.handleLog(msg, ErrorLevel, nil)
+func (l Logger) Error(msg string, fields ...any) {
+	l.handleLog(msg, ErrorLevel, fields...)
 }
 
 // Fatal emits a fatal level log line.
 // It aborts the current program with an exit code of 1.
-func (l Logger) Fatal(msg string) {
-	l.handleLog(msg, FatalLevel, nil)
+func (l Logger) Fatal(msg string, fields ...any) {
+	l.handleLog(msg, FatalLevel, fields...)
 	os.Exit(1)
-}
-
-// WithFields returns a new entry with `fields` set.
-func (l Logger) WithFields(fields Fields) FieldLogger {
-	return FieldLogger{
-		fields: fields,
-		logger: l,
-	}
-}
-
-// WithError returns a Logger with the "error" key set to `err`.
-func (l Logger) WithError(err error) FieldLogger {
-	if err == nil {
-		return FieldLogger{logger: l}
-	}
-
-	return l.WithFields(Fields{
-		"error": err.Error(),
-	})
 }
 
 // handleLog emits the log after filtering log level
 // and applying formatting of the fields.
-func (l Logger) handleLog(msg string, lvl Level, fields Fields) {
+func (l Logger) handleLog(msg string, lvl Level, fields ...any) {
 	// Discard the log if the verbosity is higher.
 	// For eg, if the lvl is `3` (error), but the incoming message is `0` (debug), skip it.
 	if lvl < l.level {
@@ -228,13 +205,33 @@ func (l Logger) handleLog(msg string, lvl Level, fields Fields) {
 	}
 
 	// Format the line as logfmt.
-	var count int // count is find out if this is the last key in while itering fields.
-	for k, v := range fields {
+	var (
+		// count is find out if this is the last key in while itering fields.
+		count int
+		key   string
+		val   any
+	)
+
+	// If there are odd number of fields, ignore the last.
+	// TODO: Should we not ignore the last key here.
+	if len(fields)%2 != 0 {
+		fields = fields[0 : len(fields)-1]
+	}
+
+	for i := range fields {
 		space := false
 		if count != len(fields)-1 {
 			space = true
 		}
-		writeToBuf(buf, k, v, lvl, l.enableColor, space)
+
+		if i%2 == 0 {
+			key = fields[i].(string)
+			continue
+		} else {
+			val = fields[i]
+		}
+
+		writeToBuf(buf, key, val, lvl, l.enableColor, space)
 		count++
 	}
 	buf.AppendString("\n")

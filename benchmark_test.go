@@ -25,7 +25,7 @@ func BenchmarkOneField(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			logger.WithFields(logf.Fields{"stack": "testing"}).Info("hello world")
+			logger.Info("hello world", "stack", "testing")
 		}
 	})
 }
@@ -37,11 +37,9 @@ func BenchmarkThreeFields(b *testing.B) {
 
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			logger.WithFields(logf.Fields{
-				"component": "api",
-				"method":    "GET",
-				"bytes":     1 << 18,
-			}).Info("request completed")
+			logger.Info("request completed",
+				"component", "api", "method", "GET", "bytes", 1<<18,
+			)
 		}
 	})
 }
@@ -55,7 +53,7 @@ func BenchmarkErrorField(b *testing.B) {
 
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			logger.WithError(fakeErr).Error("request failed")
+			logger.Error("request fields", "error", fakeErr)
 		}
 	})
 }
@@ -67,18 +65,18 @@ func BenchmarkHugePayload(b *testing.B) {
 
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			logger.WithFields(logf.Fields{
-				"id":                 11,
-				"title":              "perfume Oil",
-				"description":        "Mega Discount, Impression of A...",
-				"price":              13,
-				"discountPercentage": 8.4,
-				"rating":             4.26,
-				"stock":              65,
-				"brand":              "Impression of Acqua Di Gio",
-				"category":           "fragrances",
-				"thumbnail":          "https://dummyjson.com/image/i/products/11/thumbnail.jpg",
-			}).Info("fetched details")
+			logger.Info("fetched details",
+				"id", 11,
+				"title", "perfume Oil",
+				"description", "Mega Discount, Impression of A...",
+				"price", 13,
+				"discountPercentage", 8.4,
+				"rating", 4.26,
+				"stock", 65,
+				"brand", "Impression of Acqua Di Gio",
+				"category", "fragrances",
+				"thumbnail", "https://dummyjson.com/image/i/products/11/thumbnail.jpg",
+			)
 		}
 	})
 }
@@ -91,11 +89,9 @@ func BenchmarkThreeFields_WithCaller(b *testing.B) {
 
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			logger.WithFields(logf.Fields{
-				"component": "api",
-				"method":    "GET",
-				"bytes":     1 << 18,
-			}).Info("request completed")
+			logger.Info("request completed",
+				"component", "api", "method", "GET", "bytes", 1<<18,
+			)
 		}
 	})
 }
@@ -120,7 +116,7 @@ func BenchmarkOneField_WithColor(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			logger.WithFields(logf.Fields{"stack": "testing"}).Info("hello world")
+			logger.Info("hello world", "stack", "testing")
 		}
 	})
 }
@@ -133,11 +129,9 @@ func BenchmarkThreeFields_WithColor(b *testing.B) {
 
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			logger.WithFields(logf.Fields{
-				"component": "api",
-				"method":    "GET",
-				"bytes":     1 << 18,
-			}).Info("request completed")
+			logger.Info("request completed",
+				"component", "api", "method", "GET", "bytes", 1<<18,
+			)
 		}
 	})
 }
@@ -152,7 +146,7 @@ func BenchmarkErrorField_WithColor(b *testing.B) {
 
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			logger.WithError(fakeErr).Error("request failed")
+			logger.Error("request fields", "error", fakeErr)
 		}
 	})
 }
@@ -165,18 +159,18 @@ func BenchmarkHugePayload_WithColor(b *testing.B) {
 
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			logger.WithFields(logf.Fields{
-				"id":                 11,
-				"title":              "perfume Oil",
-				"description":        "Mega Discount, Impression of A...",
-				"price":              13,
-				"discountPercentage": 8.4,
-				"rating":             4.26,
-				"stock":              65,
-				"brand":              "Impression of Acqua Di Gio",
-				"category":           "fragrances",
-				"thumbnail":          "https://dummyjson.com/image/i/products/11/thumbnail.jpg",
-			}).Info("fetched details")
+			logger.Info("fetched details",
+				"id", 11,
+				"title", "perfume Oil",
+				"description", "Mega Discount, Impression of A...",
+				"price", 13,
+				"discountPercentage", 8.4,
+				"rating", 4.26,
+				"stock", 65,
+				"brand", "Impression of Acqua Di Gio",
+				"category", "fragrances",
+				"thumbnail", "https://dummyjson.com/image/i/products/11/thumbnail.jpg",
+			)
 		}
 	})
 }
