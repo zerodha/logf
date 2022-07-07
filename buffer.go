@@ -62,16 +62,6 @@ func (bb *byteBuffer) AppendFloat(f float64, bitSize int) {
 	bb.B = strconv.AppendFloat(bb.B, f, 'f', -1, bitSize)
 }
 
-// Len returns the length of the underlying buffer.
-func (bb *byteBuffer) Len() int {
-	return len(bb.B)
-}
-
-// Cap returns the capacity of the underlying buffer.
-func (bb *byteBuffer) Cap() int {
-	return cap(bb.B)
-}
-
 // Bytes returns a mutable reference to the underlying buffer.
 func (bb *byteBuffer) Bytes() []byte {
 	return bb.B
@@ -80,22 +70,4 @@ func (bb *byteBuffer) Bytes() []byte {
 // Reset resets the underlying buffer.
 func (bb *byteBuffer) Reset() {
 	bb.B = bb.B[:0]
-}
-
-// Write implements io.Writer.
-func (bb *byteBuffer) Write(bs []byte) (int, error) {
-	bb.B = append(bb.B, bs...)
-	return len(bs), nil
-}
-
-// WriteByte writes a single byte to the buffer
-func (bb *byteBuffer) WriteByte(v byte) error {
-	bb.B = append(bb.B, v)
-	return nil
-}
-
-// WriteString writes a string to the buffer.
-func (bb *byteBuffer) WriteString(s string) (int, error) {
-	bb.B = append(bb.B, s...)
-	return len(s), nil
 }
