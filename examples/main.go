@@ -31,11 +31,6 @@ func main() {
 	// Change the default timestamp format.
 	logger.SetTimestampFormat(time.RFC3339Nano)
 
-	// Create a logger and add fields which will be logged in every line.
-	fields := []any{"request_id", "3MG91VKP", "ip", "1.1.1.1", "method", "method=GET"}
-	logger.Info("request success", fields...)
-	logger.Warn("this isn't supposed to happen", fields...)
-
 	// Log the error and set exit code as 1.
 	logger.Fatal("goodbye world")
 }
