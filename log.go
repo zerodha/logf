@@ -23,26 +23,31 @@ var (
 	bufPool byteBufferPool
 )
 
+type Opts struct {
+	Writer               io.Writer
+	Level                Level
+	TimestampFormat      string
+	EnableColor          bool
+	EnableCaller         bool
+	CallerSkipFrameCount int
+}
+
 // Logger is the interface for all log operations
 // related to emitting logs.
 type Logger struct {
-	out                  io.Writer // Output destination.
-	level                Level     // Verbosity of logs.
-	tsFormat             string    // Timestamp format.
-	enableColor          bool      // Colored output.
-	enableCaller         bool      // Print caller information.
-	callerSkipFrameCount int       // Number of frames to skip when detecting caller
+	out io.Writer // Output destination.
+	Opts
 }
 
 // Severity level of the log.
 type Level int
 
 const (
-	DebugLevel Level = iota // 0
-	InfoLevel               // 1
-	WarnLevel               // 2
-	ErrorLevel              // 3
-	FatalLevel              // 4
+	DebugLevel Level = iota + 1 // 1
+	InfoLevel                   // 2
+	WarnLevel                   // 3
+	ErrorLevel                  // 4
+	FatalLevel                  // 5
 )
 
 // ANSI escape codes for coloring text in console.
@@ -64,20 +69,21 @@ var colorLvlMap = [...]string{
 }
 
 // New instantiates a logger object.
-// It writes to `stderr` as the default and it's non configurable.
-func New(out io.Writer) Logger {
-	// Initialise logger with sane defaults.
-	if out == nil {
-		out = os.Stderr
+func New(opts Opts) Logger {
+	// Initialise fallbacks if unspecified by user.
+	if opts.Writer == nil {
+		opts.Writer = os.Stderr
+	}
+	if opts.TimestampFormat == "" {
+		opts.TimestampFormat = defaultTSFormat
+	}
+	if opts.Level == 0 {
+		opts.Level = InfoLevel
 	}
 
 	return Logger{
-		out:                  newSyncWriter(out),
-		level:                InfoLevel,
-		tsFormat:             defaultTSFormat,
-		enableColor:          false,
-		enableCaller:         false,
-		callerSkipFrameCount: 0,
+		out:  newSyncWriter(opts.Writer),
+		Opts: opts,
 	}
 }
 
@@ -124,38 +130,6 @@ func (l Level) String() string {
 	}
 }
 
-// SetLevel sets the verbosity for logger.
-// Verbosity can be dynamically changed by the caller.
-func (l Logger) SetLevel(lvl Level) Logger {
-	l.level = lvl
-	return l
-}
-
-// SetWriter sets the output writer for the logger
-func (l Logger) SetWriter(w io.Writer) Logger {
-	l.out = &syncWriter{w: w}
-	return l
-}
-
-// SetTimestampFormat sets the timestamp format for the `timestamp` key.
-func (l Logger) SetTimestampFormat(f string) Logger {
-	l.tsFormat = f
-	return l
-}
-
-// SetColorOutput enables/disables colored output.
-func (l Logger) SetColorOutput(color bool) Logger {
-	l.enableColor = color
-	return l
-}
-
-// SetCallerFrame enables/disables the caller source in the log line.
-func (l Logger) SetCallerFrame(caller bool, depth int) Logger {
-	l.enableCaller = caller
-	l.callerSkipFrameCount = depth
-	return l
-}
-
 // Debug emits a debug log line.
 func (l Logger) Debug(msg string, fields ...any) {
 	l.handleLog(msg, DebugLevel, fields...)
@@ -188,7 +162,7 @@ func (l Logger) Fatal(msg string, fields ...any) {
 func (l Logger) handleLog(msg string, lvl Level, fields ...any) {
 	// Discard the log if the verbosity is higher.
 	// For eg, if the lvl is `3` (error), but the incoming message is `0` (debug), skip it.
-	if lvl < l.level {
+	if lvl < l.Opts.Level {
 		return
 	}
 
@@ -196,12 +170,10 @@ func (l Logger) handleLog(msg string, lvl Level, fields ...any) {
 	buf := bufPool.Get()
 
 	// Write fixed keys to the buffer before writing user provided ones.
-	writeTimeToBuf(buf, l.tsFormat, lvl, l.enableColor)
-	writeToBuf(buf, "level", lvl, lvl, l.enableColor, true)
-	writeStringToBuf(buf, "message", msg, lvl, l.enableColor, true)
+	writeTimeToBuf(buf, l.Opts.TimestampFormat, lvl, l.Opts.EnableColor)
+	writeToBuf(buf, "level", lvl, lvl, l.Opts.EnableColor, true)
+	writeStringToBuf(buf, "message", msg, lvl, l.Opts.EnableColor, true)
 
-	if l.enableCaller {
-		writeToBuf(buf, "caller", caller(l.callerSkipFrameCount), lvl, l.enableColor, true)
 	}
 
 	// Format the line as logfmt.
@@ -230,7 +202,7 @@ func (l Logger) handleLog(msg string, lvl Level, fields ...any) {
 			val = fields[i]
 		}
 
-		writeToBuf(buf, key, val, lvl, l.enableColor, space)
+		writeToBuf(buf, key, val, lvl, l.Opts.EnableColor, space)
 		count++
 	}
 	buf.AppendString("\n")
