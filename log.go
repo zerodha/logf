@@ -235,9 +235,7 @@ func (l Logger) handleLog(msg string, lvl Level, fields ...any) {
 		stdlog.Printf("error logging: %v", err)
 	}
 
-	buf.Reset()
-
-	// Put the writer back in the pool.
+	// Put the writer back in the pool. It resets the underlying byte buffer.
 	bufPool.Put(buf)
 }
 
