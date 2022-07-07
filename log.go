@@ -6,7 +6,6 @@ import (
 	stdlog "log"
 	"os"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -174,6 +173,8 @@ func (l Logger) handleLog(msg string, lvl Level, fields ...any) {
 	writeToBuf(buf, "level", lvl, lvl, l.Opts.EnableColor, true)
 	writeStringToBuf(buf, "message", msg, lvl, l.Opts.EnableColor, true)
 
+	if l.Opts.EnableCaller {
+		writeCallerToBuf(buf, "caller", l.Opts.CallerSkipFrameCount, lvl, l.EnableColor, true)
 	}
 
 	// Format the line as logfmt.
@@ -245,6 +246,26 @@ func writeStringToBuf(buf *byteBuffer, key string, val string, lvl Level, color,
 	}
 }
 
+func writeCallerToBuf(buf *byteBuffer, key string, depth int, lvl Level, color, space bool) {
+	_, file, line, ok := runtime.Caller(depth)
+	if !ok {
+		file = "???"
+		line = 0
+	}
+	if color {
+		buf.AppendString(getColoredKey(key, lvl))
+	} else {
+		buf.AppendString(key)
+	}
+	buf.AppendByte('=')
+	escapeAndWriteString(buf, file)
+	buf.AppendByte(':')
+	buf.AppendInt(int64(line))
+	if space {
+		buf.AppendByte(' ')
+	}
+}
+
 // writeToBuf takes key, value and additional options to write to the buffer in logfmt.
 func writeToBuf(buf *byteBuffer, key string, val any, lvl Level, color, space bool) {
 	if color {
@@ -293,16 +314,6 @@ func escapeAndWriteString(buf *byteBuffer, s string) {
 // getColoredKey returns a color formatter key based on the log level.
 func getColoredKey(k string, lvl Level) string {
 	return colorLvlMap[lvl] + k + reset
-}
-
-// caller returns the file:line of the caller.
-func caller(depth int) string {
-	_, file, line, ok := runtime.Caller(depth)
-	if !ok {
-		file = "???"
-		line = 0
-	}
-	return file + ":" + strconv.Itoa(line)
 }
 
 // checkEscapingRune returns true if the rune is to be escaped.
