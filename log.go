@@ -29,6 +29,9 @@ type Opts struct {
 	EnableColor          bool
 	EnableCaller         bool
 	CallerSkipFrameCount int
+
+	// These fields will be printed with every log.
+	DefaultFields []any
 }
 
 // Logger is the interface for all log operations
@@ -180,19 +183,37 @@ func (l Logger) handleLog(msg string, lvl Level, fields ...any) {
 	// Format the line as logfmt.
 	var (
 		// count is find out if this is the last key in while itering fields.
-		count int
-		key   string
-		val   any
+		count      int
+		fieldCount = len(l.DefaultFields) + len(fields)
+		key        string
+		val        any
 	)
 
 	// If there are odd number of fields, ignore the last.
-	if len(fields)%2 != 0 {
-		fields = fields[0 : len(fields)-1]
+	if fieldCount%2 != 0 {
+		fields = fields[0 : fieldCount-1]
+	}
+
+	for i := range l.DefaultFields {
+		space := false
+		if count != fieldCount-1 {
+			space = true
+		}
+
+		if i%2 == 0 {
+			key = l.DefaultFields[i].(string)
+			continue
+		} else {
+			val = l.DefaultFields[i]
+		}
+
+		writeToBuf(buf, key, val, lvl, l.Opts.EnableColor, space)
+		count++
 	}
 
 	for i := range fields {
 		space := false
-		if count != len(fields)-1 {
+		if count != fieldCount-1 {
 			space = true
 		}
 

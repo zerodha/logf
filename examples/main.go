@@ -13,6 +13,7 @@ func main() {
 		CallerSkipFrameCount: 3,
 		EnableCaller:         true,
 		TimestampFormat:      time.RFC3339Nano,
+		DefaultFields:        []any{"scope", "example"},
 	})
 
 	// Basic logs.
