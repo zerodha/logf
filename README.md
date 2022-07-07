@@ -1,14 +1,14 @@
 <a href="https://zerodha.tech"><img src="https://zerodha.tech/static/images/github-badge.svg" align="right" /></a>
 
-# logf 💥
+# 💥 logf
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/zerodha/logf.svg)](https://pkg.go.dev/github.com/zerodha/logf)
 [![Go Report Card](https://goreportcard.com/badge/zerodha/logf)](https://goreportcard.com/report/zerodha/logf)
 [![GitHub Actions](https://github.com/zerodha/logf/actions/workflows/build.yml/badge.svg)](https://github.com/zerodha/logf/actions/workflows/build.yml)
 
-`logf` is a **high performance**, **zero alloc** logging library for Go applications with a _minimal_ API overhead. It's also the **fastest** logfmt logging library for Go.
+`logf` is a high-performance, zero-alloc logging library for Go applications with a minimal API overhead. It's also the fastest logfmt logging library for Go.
 
-`logf` emits **structured logs** ([`logfmt`](https://brandur.org/logfmt) style) in human readable and machine friendly way.
+`logf` emits structured logs in [`logfmt`](https://brandur.org/logfmt) style. `logfmt` is a flexible format which involves `key=value` pairs to emit structured log lines. `logfmt` achieves the goal of generating logs that are not just machine-friendly but also readable by humans, unlike the clunky JSON lines.
 
 ## Example
 
@@ -61,13 +61,13 @@ timestamp=2022-07-07T12:09:10.221+05:30 level=fatal message="goodbye world"
 
 ## Why another lib
 
-Agreed there are many logging libraries out there but I was dissatisfied with the current options.
+There are several logging libraries, but our usecase weren't met by the available options.
 
-`logf` satisfies my constraints of:
+`logf` meets our constraints of:
 
 - Clean API
 - Minimal Dependencies
-- Structured logging but human readable (`logfmt`!)
+- Structured logging but human-readable (`logfmt`!)
 - Sane defaults out of the box
 
 ## Benchmarks
