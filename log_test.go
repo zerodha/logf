@@ -66,6 +66,19 @@ func TestLogFormat(t *testing.T) {
 	buf.Reset()
 }
 
+func TestLogFormatWithDefaultFields(t *testing.T) {
+	buf := &bytes.Buffer{}
+	l := New(Opts{Writer: buf, DefaultFields: []any{"defaultkey", "defaultvalue"}})
+
+	l.Info("hello world")
+	assert.Contains(t, buf.String(), `level=info message="hello world" defaultkey=defaultvalue`)
+	buf.Reset()
+
+	l.Info("hello world", "component", "logf")
+	assert.Contains(t, buf.String(), `level=info message="hello world" defaultkey=defaultvalue component=logf`)
+	buf.Reset()
+}
+
 func TestOddNumberedFields(t *testing.T) {
 	buf := &bytes.Buffer{}
 	l := New(Opts{Writer: buf})
