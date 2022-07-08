@@ -97,10 +97,6 @@ BenchmarkHugePayload_WithColor-8         1520659               799.5 ns/op      
 
 For a comparison with existing popular libs, visit [uber-go/zap#performance](https://github.com/uber-go/zap#performance).
 
-## Contributors
-
-https://github.com/zerodha/logf/graphs/contributors
-
 ## LICENSE
 
 [LICENSE](./LICENSE)
