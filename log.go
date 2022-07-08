@@ -20,6 +20,7 @@ const (
 var (
 	hex     = "0123456789abcdef"
 	bufPool byteBufferPool
+	exit    = func() { os.Exit(1) }
 )
 
 type Opts struct {
@@ -81,6 +82,9 @@ func New(opts Opts) Logger {
 	}
 	if opts.Level == 0 {
 		opts.Level = InfoLevel
+	}
+	if opts.CallerSkipFrameCount == 0 {
+		opts.CallerSkipFrameCount = 3
 	}
 
 	return Logger{
@@ -156,7 +160,7 @@ func (l Logger) Error(msg string, fields ...any) {
 // It aborts the current program with an exit code of 1.
 func (l Logger) Fatal(msg string, fields ...any) {
 	l.handleLog(msg, FatalLevel, fields...)
-	os.Exit(1)
+	exit()
 }
 
 // handleLog emits the log after filtering log level
@@ -295,9 +299,15 @@ func writeToBuf(buf *byteBuffer, key string, val any, lvl Level, color, space bo
 	buf.AppendByte('=')
 
 	switch v := val.(type) {
+	case nil:
+		buf.AppendString("null")
+	case []byte:
+		escapeAndWriteString(buf, string(v))
 	case string:
 		escapeAndWriteString(buf, v)
 	case int:
+		buf.AppendInt(int64(v))
+	case int8:
 		buf.AppendInt(int64(v))
 	case int16:
 		buf.AppendInt(int64(v))
@@ -309,6 +319,8 @@ func writeToBuf(buf *byteBuffer, key string, val any, lvl Level, color, space bo
 		buf.AppendFloat(float64(v), 32)
 	case float64:
 		buf.AppendFloat(float64(v), 64)
+	case bool:
+		buf.AppendBool(v)
 	case error:
 		escapeAndWriteString(buf, v.Error())
 	case fmt.Stringer:
@@ -325,7 +337,7 @@ func writeToBuf(buf *byteBuffer, key string, val any, lvl Level, color, space bo
 // escapeAndWriteString escapes the string if any unwanted chars are there.
 func escapeAndWriteString(buf *byteBuffer, s string) {
 	idx := strings.IndexFunc(s, checkEscapingRune)
-	if idx != -1 {
+	if idx != -1 || s == "null" {
 		writeQuotedString(buf, s)
 		return
 	}
