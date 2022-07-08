@@ -87,6 +87,10 @@ func New(opts Opts) Logger {
 		opts.CallerSkipFrameCount = 3
 	}
 
+	if len(opts.DefaultFields)%2 != 0 {
+		opts.DefaultFields = opts.DefaultFields[0 : len(opts.DefaultFields)-1]
+	}
+
 	return Logger{
 		out:  newSyncWriter(opts.Writer),
 		Opts: opts,
@@ -195,7 +199,7 @@ func (l Logger) handleLog(msg string, lvl Level, fields ...any) {
 
 	// If there are odd number of fields, ignore the last.
 	if fieldCount%2 != 0 {
-		fields = fields[0 : fieldCount-1]
+		fields = fields[0 : len(fields)-1]
 	}
 
 	for i := range l.DefaultFields {
