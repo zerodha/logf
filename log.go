@@ -195,7 +195,7 @@ func (l Logger) handleLog(msg string, lvl Level, fields ...any) {
 
 	// If there are odd number of fields, ignore the last.
 	if fieldCount%2 != 0 {
-		fields = fields[0 : fieldCount-1]
+		fields = fields[0 : len(fields)-1]
 	}
 
 	for i := range l.DefaultFields {

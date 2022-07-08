@@ -223,6 +223,18 @@ func TestOddNumberedFields(t *testing.T) {
 	buf.Reset()
 }
 
+func TestOddNumberedFieldsWithDefaultFields(t *testing.T) {
+	buf := &bytes.Buffer{}
+	l := New(Opts{Writer: buf, DefaultFields: []any{
+		"defaultkey", "defaultval",
+	}})
+
+	// Give a odd number of fields.
+	l.Info("hello world", "key1", "val1", "key2")
+	require.Contains(t, buf.String(), `level=info message="hello world" defaultkey=defaultval key1=val1`)
+	buf.Reset()
+}
+
 // These test are typically meant to be run with the data race detector.
 func TestLoggerConcurrency(t *testing.T) {
 	buf := &bytes.Buffer{}
