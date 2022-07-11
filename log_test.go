@@ -3,6 +3,7 @@ package logf
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"log"
 	"strconv"
 	"sync"
@@ -17,12 +18,12 @@ func TestLogFormatWithEnableCaller(t *testing.T) {
 
 	l.Info("hello world")
 	require.Contains(t, buf.String(), `level=info message="hello world" caller=`)
-	require.Contains(t, buf.String(), `logf/log_test.go:18`)
+	require.Contains(t, buf.String(), `logf/log_test.go:19`)
 	buf.Reset()
 
 	lC := New(Opts{Writer: buf, EnableCaller: true, EnableColor: true})
 	lC.Info("hello world")
-	require.Contains(t, buf.String(), `logf/log_test.go:24`)
+	require.Contains(t, buf.String(), `logf/log_test.go:25`)
 	buf.Reset()
 }
 
@@ -32,16 +33,27 @@ func TestLevelParsing(t *testing.T) {
 		Lvl    Level
 		Num    int
 	}{
-		{"debug", DebugLevel, 0},
-		{"info", InfoLevel, 1},
-		{"warn", WarnLevel, 2},
-		{"error", ErrorLevel, 3},
-		{"fatal", FatalLevel, 4},
+		{"debug", DebugLevel, 1},
+		{"info", InfoLevel, 2},
+		{"warn", WarnLevel, 3},
+		{"error", ErrorLevel, 4},
+		{"fatal", FatalLevel, 5},
 	}
 
 	for _, c := range cases {
 		t.Run(c.String, func(t *testing.T) {
 			require.Equal(t, c.Lvl.String(), c.String, "level should be equal")
+		})
+	}
+
+	// Test LevelFromString.
+	for _, c := range cases {
+		t.Run(fmt.Sprintf("from-string-%v", c.String), func(t *testing.T) {
+			str, err := LevelFromString(c.String)
+			if err != nil {
+				t.Fatalf("error parsing level: %v", err)
+			}
+			require.Equal(t, c.Lvl, str, "level should be equal")
 		})
 	}
 
