@@ -140,6 +140,23 @@ func (l Level) String() string {
 	}
 }
 
+func LevelFromString(lvl string) (Level, error) {
+	switch lvl {
+	case "debug":
+		return DebugLevel, nil
+	case "info":
+		return InfoLevel, nil
+	case "warn":
+		return WarnLevel, nil
+	case "error":
+		return ErrorLevel, nil
+	case "fatal":
+		return FatalLevel, nil
+	default:
+		return 0, fmt.Errorf("invalid level")
+	}
+}
+
 // Debug emits a debug log line.
 func (l Logger) Debug(msg string, fields ...any) {
 	l.handleLog(msg, DebugLevel, fields...)
