@@ -8,7 +8,7 @@
 
 `logf` is a high-performance, zero-alloc logging library for Go applications with a minimal API overhead. It's also the fastest logfmt logging library for Go.
 
-`logf` emits structured logs in [`logfmt`](https://brandur.org/logfmt) style. `logfmt` is a flexible format which involves `key=value` pairs to emit structured log lines. `logfmt` achieves the goal of generating logs that are not just machine-friendly but also readable by humans, unlike the clunky JSON lines.
+`logf` emits structured logs in [`logfmt`](https://brandur.org/logfmt) style. `logfmt` is a flexible format that involves `key=value` pairs to emit structured log lines. `logfmt` achieves the goal of generating logs that are not just machine-friendly but also readable by humans, unlike the clunky JSON lines.
 
 ## Example
 
@@ -61,12 +61,12 @@ timestamp=2022-07-07T12:09:10.221+05:30 level=fatal message="goodbye world"
 
 ## Why another lib
 
-There are several logging libraries, but our usecase weren't met by the available options.
+There are several logging libraries, but the available options didn't meet our use case.
 
 `logf` meets our constraints of:
 
 - Clean API
-- Minimal Dependencies
+- Minimal dependencies
 - Structured logging but human-readable (`logfmt`!)
 - Sane defaults out of the box
 

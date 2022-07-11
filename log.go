@@ -73,7 +73,7 @@ var colorLvlMap = [...]string{
 
 // New instantiates a logger object.
 func New(opts Opts) Logger {
-	// Initialise fallbacks if unspecified by user.
+	// Initialize fallbacks if unspecified by user.
 	if opts.Writer == nil {
 		opts.Writer = os.Stderr
 	}
@@ -207,8 +207,7 @@ func (l Logger) handleLog(msg string, lvl Level, fields ...any) {
 
 	// Format the line as logfmt.
 	var (
-		// count is find out if this is the last key in while itering fields.
-		count      int
+		count      int // to find out if this is the last key in while itering fields.
 		fieldCount = len(l.DefaultFields) + len(fields)
 		key        string
 		val        any
@@ -277,7 +276,7 @@ func writeTimeToBuf(buf *byteBuffer, format string, lvl Level, color bool) {
 }
 
 // writeStringToBuf takes key, value and additional options to write to the buffer in logfmt.
-func writeStringToBuf(buf *byteBuffer, key string, val string, lvl Level, color, space bool) {
+func writeStringToBuf(buf *byteBuffer, key, val string, lvl Level, color, space bool) {
 	if color {
 		escapeAndWriteString(buf, getColoredKey(key, lvl))
 	} else {
@@ -335,11 +334,11 @@ func writeToBuf(buf *byteBuffer, key string, val any, lvl Level, color, space bo
 	case int32:
 		buf.AppendInt(int64(v))
 	case int64:
-		buf.AppendInt(int64(v))
+		buf.AppendInt(v)
 	case float32:
 		buf.AppendFloat(float64(v), 32)
 	case float64:
-		buf.AppendFloat(float64(v), 64)
+		buf.AppendFloat(v, 64)
 	case bool:
 		buf.AppendBool(v)
 	case error:

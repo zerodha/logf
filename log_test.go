@@ -89,7 +89,7 @@ func TestLogFormat(t *testing.T) {
 
 	l = New(Opts{Writer: buf})
 
-	// Debug log but with defualt level set to info.
+	// Debug log but with default level set to info.
 	l.Debug("debug log")
 	require.NotContains(t, buf.String(), `level=debug message="debug log"`)
 	buf.Reset()
@@ -111,7 +111,7 @@ func TestLogFormat(t *testing.T) {
 	buf.Reset()
 
 	// Fatal log
-	var hadExit = false
+	hadExit := false
 	exit = func() {
 		hadExit = true
 	}
