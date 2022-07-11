@@ -111,7 +111,7 @@ func TestLogFormat(t *testing.T) {
 	buf.Reset()
 
 	// Fatal log
-	hadExit := false
+	var hadExit bool
 	exit = func() {
 		hadExit = true
 	}
