@@ -144,7 +144,7 @@ func TestLoggerTypes(t *testing.T) {
 
 func TestLogFormatWithDefaultFields(t *testing.T) {
 	buf := &bytes.Buffer{}
-	l := New(Opts{Writer: buf, DefaultFields: []any{"defaultkey", "defaultvalue"}})
+	l := New(Opts{Writer: buf, DefaultFields: []interface{}{"defaultkey", "defaultvalue"}})
 
 	l.Info("hello world")
 	require.Contains(t, buf.String(), `level=info message="hello world" defaultkey=defaultvalue`)
@@ -225,7 +225,7 @@ func TestOddNumberedFields(t *testing.T) {
 
 func TestOddNumberedFieldsWithDefaultFields(t *testing.T) {
 	buf := &bytes.Buffer{}
-	l := New(Opts{Writer: buf, DefaultFields: []any{
+	l := New(Opts{Writer: buf, DefaultFields: []interface{}{
 		"defaultkey", "defaultval",
 	}})
 

@@ -31,7 +31,7 @@ func BenchmarkOneField(b *testing.B) {
 }
 
 func BenchmarkOneFieldWithDefaultFields(b *testing.B) {
-	logger := logf.New(logf.Opts{Writer: io.Discard, DefaultFields: []any{"component", "logf"}})
+	logger := logf.New(logf.Opts{Writer: io.Discard, DefaultFields: []interface{}{"component", "logf"}})
 	b.ReportAllocs()
 	b.ResetTimer()
 	b.RunParallel(func(p *testing.PB) {
