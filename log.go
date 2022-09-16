@@ -210,7 +210,6 @@ func (l Logger) handleLog(msg string, lvl Level, fields ...interface{}) {
 		count      int // to find out if this is the last key in while itering fields.
 		fieldCount = len(l.DefaultFields) + len(fields)
 		key        string
-		val        interface{}
 	)
 
 	// If there are odd number of fields, ignore the last.
@@ -227,11 +226,9 @@ func (l Logger) handleLog(msg string, lvl Level, fields ...interface{}) {
 		if i%2 == 0 {
 			key = l.DefaultFields[i].(string)
 			continue
-		} else {
-			val = l.DefaultFields[i]
 		}
 
-		writeToBuf(buf, key, val, lvl, l.Opts.EnableColor, space)
+		writeToBuf(buf, key, l.DefaultFields[i], lvl, l.Opts.EnableColor, space)
 		count++
 	}
 
@@ -244,11 +241,9 @@ func (l Logger) handleLog(msg string, lvl Level, fields ...interface{}) {
 		if i%2 == 0 {
 			key = fields[i].(string)
 			continue
-		} else {
-			val = fields[i]
 		}
 
-		writeToBuf(buf, key, val, lvl, l.Opts.EnableColor, space)
+		writeToBuf(buf, key, fields[i], lvl, l.Opts.EnableColor, space)
 		count++
 	}
 	buf.AppendString("\n")
