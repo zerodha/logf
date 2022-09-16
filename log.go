@@ -15,14 +15,34 @@ import (
 const (
 	tsKey           = "timestamp="
 	defaultTSFormat = "2006-01-02T15:04:05.999Z07:00"
+
+	// ANSI escape codes for coloring text in console.
+	reset  = "\033[0m"
+	purple = "\033[35m"
+	red    = "\033[31m"
+	yellow = "\033[33m"
+	cyan   = "\033[36m"
 )
 
-var (
-	hex     = "0123456789abcdef"
-	bufPool byteBufferPool
-	exit    = func() { os.Exit(1) }
+const (
+	DebugLevel Level = iota + 1 // 1
+	InfoLevel                   // 2
+	WarnLevel                   // 3
+	ErrorLevel                  // 4
+	FatalLevel                  // 5
 )
 
+// syncWriter is a wrapper around io.Writer that
+// synchronizes writes using a mutex.
+type syncWriter struct {
+	sync.Mutex
+	w io.Writer
+}
+
+// Severity level of the log.
+type Level int
+
+// Opts represents the config options for the package.
 type Opts struct {
 	Writer               io.Writer
 	Level                Level
@@ -35,41 +55,27 @@ type Opts struct {
 	DefaultFields []interface{}
 }
 
-// Logger is the interface for all log operations
-// related to emitting logs.
+// Logger is the interface for all log operations related to emitting logs.
 type Logger struct {
-	out io.Writer // Output destination.
+	// Output destination.
+	out io.Writer
 	Opts
 }
 
-// Severity level of the log.
-type Level int
+var (
+	hex     = "0123456789abcdef"
+	bufPool byteBufferPool
+	exit    = func() { os.Exit(1) }
 
-const (
-	DebugLevel Level = iota + 1 // 1
-	InfoLevel                   // 2
-	WarnLevel                   // 3
-	ErrorLevel                  // 4
-	FatalLevel                  // 5
+	// Map colors with log level.
+	colorLvlMap = [...]string{
+		DebugLevel: purple,
+		InfoLevel:  cyan,
+		WarnLevel:  yellow,
+		ErrorLevel: red,
+		FatalLevel: red,
+	}
 )
-
-// ANSI escape codes for coloring text in console.
-const (
-	reset  = "\033[0m"
-	purple = "\033[35m"
-	red    = "\033[31m"
-	yellow = "\033[33m"
-	cyan   = "\033[36m"
-)
-
-// Map colors with log level.
-var colorLvlMap = [...]string{
-	DebugLevel: purple,
-	InfoLevel:  cyan,
-	WarnLevel:  yellow,
-	ErrorLevel: red,
-	FatalLevel: red,
-}
 
 // New instantiates a logger object.
 func New(opts Opts) Logger {
@@ -86,7 +92,6 @@ func New(opts Opts) Logger {
 	if opts.CallerSkipFrameCount == 0 {
 		opts.CallerSkipFrameCount = 3
 	}
-
 	if len(opts.DefaultFields)%2 != 0 {
 		opts.DefaultFields = opts.DefaultFields[0 : len(opts.DefaultFields)-1]
 	}
@@ -97,21 +102,6 @@ func New(opts Opts) Logger {
 	}
 }
 
-// syncWriter is a wrapper around io.Writer that
-// synchronizes writes using a mutex.
-type syncWriter struct {
-	sync.Mutex
-	w io.Writer
-}
-
-// Write synchronously to the underlying io.Writer.
-func (w *syncWriter) Write(p []byte) (int, error) {
-	w.Lock()
-	n, err := w.w.Write(p)
-	w.Unlock()
-	return n, err
-}
-
 // newSyncWriter wraps an io.Writer with syncWriter. It can
 // be used as an io.Writer as syncWriter satisfies the io.Writer interface.
 func newSyncWriter(in io.Writer) *syncWriter {
@@ -120,6 +110,14 @@ func newSyncWriter(in io.Writer) *syncWriter {
 	}
 
 	return &syncWriter{w: in}
+}
+
+// Write synchronously to the underlying io.Writer.
+func (w *syncWriter) Write(p []byte) (int, error) {
+	w.Lock()
+	n, err := w.w.Write(p)
+	w.Unlock()
+	return n, err
 }
 
 // String representation of the log severity.
@@ -246,6 +244,7 @@ func (l Logger) handleLog(msg string, lvl Level, fields ...interface{}) {
 		writeToBuf(buf, key, fields[i], lvl, l.Opts.EnableColor, space)
 		count++
 	}
+
 	buf.AppendString("\n")
 
 	_, err := l.out.Write(buf.Bytes())
@@ -277,8 +276,10 @@ func writeStringToBuf(buf *byteBuffer, key, val string, lvl Level, color, space 
 	} else {
 		escapeAndWriteString(buf, key)
 	}
+
 	buf.AppendByte('=')
 	escapeAndWriteString(buf, val)
+
 	if space {
 		buf.AppendByte(' ')
 	}
@@ -290,15 +291,18 @@ func writeCallerToBuf(buf *byteBuffer, key string, depth int, lvl Level, color, 
 		file = "???"
 		line = 0
 	}
+
 	if color {
 		buf.AppendString(getColoredKey(key, lvl))
 	} else {
 		buf.AppendString(key)
 	}
+
 	buf.AppendByte('=')
 	escapeAndWriteString(buf, file)
 	buf.AppendByte(':')
 	buf.AppendInt(int64(line))
+
 	if space {
 		buf.AppendByte(' ')
 	}
@@ -311,6 +315,7 @@ func writeToBuf(buf *byteBuffer, key string, val interface{}, lvl Level, color, 
 	} else {
 		escapeAndWriteString(buf, key)
 	}
+
 	buf.AppendByte('=')
 
 	switch v := val.(type) {
@@ -356,6 +361,7 @@ func escapeAndWriteString(buf *byteBuffer, s string) {
 		writeQuotedString(buf, s)
 		return
 	}
+
 	buf.AppendString(s)
 }
 
@@ -380,9 +386,11 @@ func writeQuotedString(buf *byteBuffer, s string) {
 				i++
 				continue
 			}
+
 			if start < i {
 				buf.AppendString(s[start:i])
 			}
+
 			switch b {
 			case '\\', '"':
 				buf.AppendByte('\\')
@@ -402,24 +410,30 @@ func writeQuotedString(buf *byteBuffer, s string) {
 				buf.AppendByte(hex[b>>4])
 				buf.AppendByte(hex[b&0xF])
 			}
+
 			i++
 			start = i
 			continue
 		}
+
 		c, size := utf8.DecodeRuneInString(s[i:])
 		if c == utf8.RuneError {
 			if start < i {
 				buf.AppendString(s[start:i])
 			}
+
 			buf.AppendString(`\ufffd`)
+
 			i += size
 			start = i
 			continue
 		}
 		i += size
 	}
+
 	if start < len(s) {
 		buf.AppendString(s[start:])
 	}
+
 	buf.AppendByte('"')
 }
