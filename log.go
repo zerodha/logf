@@ -285,6 +285,21 @@ func writeStringToBuf(buf *byteBuffer, key, val string, lvl Level, color, space 
 	}
 }
 
+func writeDurationToBuf(buf *byteBuffer, key string, d time.Duration, lvl Level, color, space bool) {
+	if color {
+		escapeAndWriteString(buf, getColoredKey(key, lvl))
+	} else {
+		escapeAndWriteString(buf, key)
+	}
+
+	buf.AppendByte('=')
+	buf.AppendDuration(d)
+
+	if space {
+		buf.AppendByte(' ')
+	}
+}
+
 func writeCallerToBuf(buf *byteBuffer, key string, depth int, lvl Level, color, space bool) {
 	_, file, line, ok := runtime.Caller(depth)
 	if !ok {
@@ -335,12 +350,26 @@ func writeToBuf(buf *byteBuffer, key string, val any, lvl Level, color, space bo
 		buf.AppendInt(int64(v))
 	case int64:
 		buf.AppendInt(v)
+	case uint:
+		buf.AppendUint(uint64(v))
+	case uint8:
+		buf.AppendUint(uint64(v))
+	case uint16:
+		buf.AppendUint(uint64(v))
+	case uint32:
+		buf.AppendUint(uint64(v))
+	case uint64:
+		buf.AppendUint(v)
+	case uintptr:
+		buf.AppendUint(uint64(v))
 	case float32:
 		buf.AppendFloat(float64(v), 32)
 	case float64:
 		buf.AppendFloat(v, 64)
 	case bool:
 		buf.AppendBool(v)
+	case time.Duration:
+		buf.AppendDuration(v)
 	case error:
 		escapeAndWriteString(buf, v.Error())
 	case fmt.Stringer:

@@ -11,9 +11,9 @@ import (
 // It allows users of the standard library's slog package to output logs
 // in logfmt format using logf's efficient, zero-allocation formatting.
 type SlogHandler struct {
-	logger Logger
-	attrs  []slog.Attr
-	groups []string
+	logger      Logger
+	attrs       []slog.Attr
+	groupPrefix string
 }
 
 // NewSlogHandler creates a new slog.Handler that outputs to the given logf.Logger.
@@ -27,9 +27,9 @@ type SlogHandler struct {
 //	slogger.Info("hello", "key", "value")
 func NewSlogHandler(l Logger) *SlogHandler {
 	return &SlogHandler{
-		logger: l,
-		attrs:  nil,
-		groups: nil,
+		logger:      l,
+		attrs:       nil,
+		groupPrefix: "",
 	}
 }
 
@@ -42,15 +42,12 @@ func (h *SlogHandler) Enabled(_ context.Context, level slog.Level) bool {
 func (h *SlogHandler) Handle(_ context.Context, r slog.Record) error {
 	lvl := slogLevelToLogf(r.Level)
 
-	// Discard the log if the verbosity is higher.
 	if lvl < h.logger.Level {
 		return nil
 	}
 
-	// Get a buffer from the pool.
 	buf := bufPool.Get()
 
-	// Write fixed keys to the buffer.
 	writeTimeToBuf(buf, h.logger.TimestampFormat, lvl, h.logger.EnableColor)
 	writeToBuf(buf, "level", lvl, lvl, h.logger.EnableColor, true)
 	writeStringToBuf(buf, "message", r.Message, lvl, h.logger.EnableColor, true)
@@ -59,43 +56,30 @@ func (h *SlogHandler) Handle(_ context.Context, r slog.Record) error {
 		writeSlogCallerToBuf(buf, "caller", r.PC, lvl, h.logger.EnableColor, true)
 	}
 
-	// Count total attrs for proper spacing.
-	totalAttrs := len(h.logger.DefaultFields)/2 + len(h.attrs)
-	r.Attrs(func(a slog.Attr) bool {
-		totalAttrs++
-		return true
-	})
-
-	attrCount := 0
-
-	// Write default fields from logger.
 	var key string
 	for i := range h.logger.DefaultFields {
-		space := attrCount < totalAttrs-1
 		if i%2 == 0 {
 			key = h.logger.DefaultFields[i].(string)
 			continue
 		}
-		writeToBuf(buf, key, h.logger.DefaultFields[i], lvl, h.logger.EnableColor, space)
-		attrCount++
+		writeToBuf(buf, key, h.logger.DefaultFields[i], lvl, h.logger.EnableColor, true)
 	}
 
-	// Write pre-added attrs from WithAttrs.
 	for _, attr := range h.attrs {
-		space := attrCount < totalAttrs-1
-		h.writeAttr(buf, attr, lvl, space)
-		attrCount++
+		h.writeAttr(buf, attr, lvl, true)
 	}
 
-	// Write record attrs.
 	r.Attrs(func(a slog.Attr) bool {
-		space := attrCount < totalAttrs-1
-		h.writeAttr(buf, a, lvl, space)
-		attrCount++
+		h.writeAttr(buf, a, lvl, true)
 		return true
 	})
 
-	buf.AppendString("\n")
+	n := len(buf.B)
+	if n > 0 && buf.B[n-1] == ' ' {
+		buf.B[n-1] = '\n'
+	} else {
+		buf.AppendByte('\n')
+	}
 
 	_, err := h.logger.out.Write(buf.Bytes())
 	bufPool.Put(buf)
@@ -111,9 +95,9 @@ func (h *SlogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	copy(newAttrs[len(h.attrs):], attrs)
 
 	return &SlogHandler{
-		logger: h.logger,
-		attrs:  newAttrs,
-		groups: h.groups,
+		logger:      h.logger,
+		attrs:       newAttrs,
+		groupPrefix: h.groupPrefix,
 	}
 }
 
@@ -124,14 +108,17 @@ func (h *SlogHandler) WithGroup(name string) slog.Handler {
 		return h
 	}
 
-	newGroups := make([]string, len(h.groups)+1)
-	copy(newGroups, h.groups)
-	newGroups[len(h.groups)] = name
+	var newPrefix string
+	if h.groupPrefix == "" {
+		newPrefix = name
+	} else {
+		newPrefix = h.groupPrefix + "." + name
+	}
 
 	return &SlogHandler{
-		logger: h.logger,
-		attrs:  h.attrs,
-		groups: newGroups,
+		logger:      h.logger,
+		attrs:       h.attrs,
+		groupPrefix: newPrefix,
 	}
 }
 
@@ -145,14 +132,9 @@ func (h *SlogHandler) writeAttr(buf *byteBuffer, attr slog.Attr, lvl Level, spac
 		return
 	}
 
-	// Build the key with group prefix.
 	key := attr.Key
-	if len(h.groups) > 0 {
-		prefix := h.groups[0]
-		for _, g := range h.groups[1:] {
-			prefix = prefix + "." + g
-		}
-		key = prefix + "." + key
+	if h.groupPrefix != "" {
+		key = h.groupPrefix + "." + key
 	}
 
 	// Handle the value based on its kind.
@@ -187,7 +169,7 @@ func (h *SlogHandler) writeAttrDirect(buf *byteBuffer, attr slog.Attr, lvl Level
 	case slog.KindBool:
 		writeToBuf(buf, attr.Key, attr.Value.Bool(), lvl, h.logger.EnableColor, space)
 	case slog.KindDuration:
-		writeStringToBuf(buf, attr.Key, attr.Value.Duration().String(), lvl, h.logger.EnableColor, space)
+		writeDurationToBuf(buf, attr.Key, attr.Value.Duration(), lvl, h.logger.EnableColor, space)
 	case slog.KindTime:
 		writeTimestampAttr(buf, attr.Key, attr.Value.Time(), h.logger.TimestampFormat, lvl, h.logger.EnableColor, space)
 	case slog.KindAny:
