@@ -52,7 +52,7 @@ type Opts struct {
 	CallerSkipFrameCount int
 
 	// These fields will be printed with every log.
-	DefaultFields []interface{}
+	DefaultFields []any
 }
 
 // Logger is the interface for all log operations related to emitting logs.
@@ -156,35 +156,35 @@ func LevelFromString(lvl string) (Level, error) {
 }
 
 // Debug emits a debug log line.
-func (l Logger) Debug(msg string, fields ...interface{}) {
+func (l Logger) Debug(msg string, fields ...any) {
 	l.handleLog(msg, DebugLevel, fields...)
 }
 
 // Info emits a info log line.
-func (l Logger) Info(msg string, fields ...interface{}) {
+func (l Logger) Info(msg string, fields ...any) {
 	l.handleLog(msg, InfoLevel, fields...)
 }
 
 // Warn emits a warning log line.
-func (l Logger) Warn(msg string, fields ...interface{}) {
+func (l Logger) Warn(msg string, fields ...any) {
 	l.handleLog(msg, WarnLevel, fields...)
 }
 
 // Error emits an error log line.
-func (l Logger) Error(msg string, fields ...interface{}) {
+func (l Logger) Error(msg string, fields ...any) {
 	l.handleLog(msg, ErrorLevel, fields...)
 }
 
 // Fatal emits a fatal level log line.
 // It aborts the current program with an exit code of 1.
-func (l Logger) Fatal(msg string, fields ...interface{}) {
+func (l Logger) Fatal(msg string, fields ...any) {
 	l.handleLog(msg, FatalLevel, fields...)
 	exit()
 }
 
 // handleLog emits the log after filtering log level
 // and applying formatting of the fields.
-func (l Logger) handleLog(msg string, lvl Level, fields ...interface{}) {
+func (l Logger) handleLog(msg string, lvl Level, fields ...any) {
 	// Discard the log if the verbosity is higher.
 	// For eg, if the lvl is `3` (error), but the incoming message is `0` (debug), skip it.
 	if lvl < l.Opts.Level {
@@ -309,7 +309,7 @@ func writeCallerToBuf(buf *byteBuffer, key string, depth int, lvl Level, color, 
 }
 
 // writeToBuf takes key, value and additional options to write to the buffer in logfmt.
-func writeToBuf(buf *byteBuffer, key string, val interface{}, lvl Level, color, space bool) {
+func writeToBuf(buf *byteBuffer, key string, val any, lvl Level, color, space bool) {
 	if color {
 		escapeAndWriteString(buf, getColoredKey(key, lvl))
 	} else {
@@ -354,7 +354,7 @@ func writeToBuf(buf *byteBuffer, key string, val interface{}, lvl Level, color, 
 	}
 }
 
-// escapeAndWriteString escapes the string if interface{} unwanted chars are there.
+// escapeAndWriteString escapes the string if any unwanted chars are there.
 func escapeAndWriteString(buf *byteBuffer, s string) {
 	idx := strings.IndexFunc(s, checkEscapingRune)
 	if idx != -1 || s == "null" {
