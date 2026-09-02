@@ -5,25 +5,32 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"runtime"
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
+func logInfoAndCaller(logger Logger) (string, int) {
+	_, file, line, _ := runtime.Caller(0)
+	logger.Info("hello world")
+	return file, line + 1
+}
 func TestLogFormatWithEnableCaller(t *testing.T) {
 	buf := &bytes.Buffer{}
 	l := New(Opts{Writer: buf, EnableCaller: true})
 
-	l.Info("hello world")
+	file, line := logInfoAndCaller(l)
 	require.Contains(t, buf.String(), `level=info message="hello world" caller=`)
-	require.Contains(t, buf.String(), `logf/log_test.go:19`)
+	require.Contains(t, buf.String(), file+":"+strconv.Itoa(line))
 	buf.Reset()
 
 	lC := New(Opts{Writer: buf, EnableCaller: true, EnableColor: true})
-	lC.Info("hello world")
-	require.Contains(t, buf.String(), `logf/log_test.go:25`)
+	file, line = logInfoAndCaller(lC)
+	require.Contains(t, buf.String(), file+":"+strconv.Itoa(line))
 	buf.Reset()
 }
 
@@ -222,6 +229,22 @@ func TestWriteQuotedStringCases(t *testing.T) {
 		l.Info("hello world", d.key, d.value)
 		require.Contains(t, buf.String(), d.want)
 		buf.Reset()
+	}
+}
+
+func TestAppendTimeDefaultFormat(t *testing.T) {
+	times := []time.Time{
+		time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
+		time.Date(2024, 1, 15, 10, 30, 0, 100_000_000, time.UTC),
+		time.Date(2024, 1, 15, 10, 30, 0, 123_456_789, time.FixedZone("IST", 5*60*60+30*60)),
+	}
+
+	for _, timestamp := range times {
+		t.Run(timestamp.String(), func(t *testing.T) {
+			buf := &byteBuffer{}
+			buf.AppendTime(timestamp, defaultTSFormat)
+			require.Equal(t, timestamp.Format(defaultTSFormat), string(buf.B))
+		})
 	}
 }
 

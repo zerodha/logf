@@ -6,7 +6,6 @@ import (
 	stdlog "log"
 	"os"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -52,7 +51,7 @@ type Opts struct {
 	CallerSkipFrameCount int
 
 	// These fields will be printed with every log.
-	DefaultFields []interface{}
+	DefaultFields []any
 }
 
 // Logger is the interface for all log operations related to emitting logs.
@@ -156,35 +155,35 @@ func LevelFromString(lvl string) (Level, error) {
 }
 
 // Debug emits a debug log line.
-func (l Logger) Debug(msg string, fields ...interface{}) {
+func (l Logger) Debug(msg string, fields ...any) {
 	l.handleLog(msg, DebugLevel, fields...)
 }
 
 // Info emits a info log line.
-func (l Logger) Info(msg string, fields ...interface{}) {
+func (l Logger) Info(msg string, fields ...any) {
 	l.handleLog(msg, InfoLevel, fields...)
 }
 
 // Warn emits a warning log line.
-func (l Logger) Warn(msg string, fields ...interface{}) {
+func (l Logger) Warn(msg string, fields ...any) {
 	l.handleLog(msg, WarnLevel, fields...)
 }
 
 // Error emits an error log line.
-func (l Logger) Error(msg string, fields ...interface{}) {
+func (l Logger) Error(msg string, fields ...any) {
 	l.handleLog(msg, ErrorLevel, fields...)
 }
 
 // Fatal emits a fatal level log line.
 // It aborts the current program with an exit code of 1.
-func (l Logger) Fatal(msg string, fields ...interface{}) {
+func (l Logger) Fatal(msg string, fields ...any) {
 	l.handleLog(msg, FatalLevel, fields...)
 	exit()
 }
 
 // handleLog emits the log after filtering log level
 // and applying formatting of the fields.
-func (l Logger) handleLog(msg string, lvl Level, fields ...interface{}) {
+func (l Logger) handleLog(msg string, lvl Level, fields ...any) {
 	// Discard the log if the verbosity is higher.
 	// For eg, if the lvl is `3` (error), but the incoming message is `0` (debug), skip it.
 	if lvl < l.Opts.Level {
@@ -309,7 +308,7 @@ func writeCallerToBuf(buf *byteBuffer, key string, depth int, lvl Level, color, 
 }
 
 // writeToBuf takes key, value and additional options to write to the buffer in logfmt.
-func writeToBuf(buf *byteBuffer, key string, val interface{}, lvl Level, color, space bool) {
+func writeToBuf(buf *byteBuffer, key string, val any, lvl Level, color, space bool) {
 	if color {
 		escapeAndWriteString(buf, getColoredKey(key, lvl))
 	} else {
@@ -317,7 +316,14 @@ func writeToBuf(buf *byteBuffer, key string, val interface{}, lvl Level, color, 
 	}
 
 	buf.AppendByte('=')
+	appendValueToBuf(buf, val)
 
+	if space {
+		buf.AppendByte(' ')
+	}
+}
+
+func appendValueToBuf(buf *byteBuffer, val any) {
 	switch v := val.(type) {
 	case nil:
 		buf.AppendString("null")
@@ -325,6 +331,8 @@ func writeToBuf(buf *byteBuffer, key string, val interface{}, lvl Level, color, 
 		escapeAndWriteString(buf, string(v))
 	case string:
 		escapeAndWriteString(buf, v)
+	case Level:
+		buf.AppendString(v.String())
 	case int:
 		buf.AppendInt(int64(v))
 	case int8:
@@ -335,12 +343,26 @@ func writeToBuf(buf *byteBuffer, key string, val interface{}, lvl Level, color, 
 		buf.AppendInt(int64(v))
 	case int64:
 		buf.AppendInt(v)
+	case uint:
+		buf.AppendUint(uint64(v))
+	case uint8:
+		buf.AppendUint(uint64(v))
+	case uint16:
+		buf.AppendUint(uint64(v))
+	case uint32:
+		buf.AppendUint(uint64(v))
+	case uint64:
+		buf.AppendUint(v)
+	case uintptr:
+		buf.AppendUint(uint64(v))
 	case float32:
 		buf.AppendFloat(float64(v), 32)
 	case float64:
 		buf.AppendFloat(v, 64)
 	case bool:
 		buf.AppendBool(v)
+	case time.Duration:
+		buf.AppendDuration(v)
 	case error:
 		escapeAndWriteString(buf, v.Error())
 	case fmt.Stringer:
@@ -348,21 +370,38 @@ func writeToBuf(buf *byteBuffer, key string, val interface{}, lvl Level, color, 
 	default:
 		escapeAndWriteString(buf, fmt.Sprintf("%v", val))
 	}
-
-	if space {
-		buf.AppendByte(' ')
-	}
 }
 
-// escapeAndWriteString escapes the string if interface{} unwanted chars are there.
+// escapeAndWriteString quotes and escapes strings when required by logfmt.
 func escapeAndWriteString(buf *byteBuffer, s string) {
-	idx := strings.IndexFunc(s, checkEscapingRune)
-	if idx != -1 || s == "null" {
+	if needsQuoting(s) {
 		writeQuotedString(buf, s)
 		return
 	}
-
 	buf.AppendString(s)
+}
+
+func needsQuoting(s string) bool {
+	return s == "null" || needsEscaping(s)
+}
+
+func needsEscaping(s string) bool {
+	for i := 0; i < len(s); {
+		b := s[i]
+		if b < utf8.RuneSelf {
+			if b == '=' || b == ' ' || b == '"' {
+				return true
+			}
+			i++
+			continue
+		}
+		r, size := utf8.DecodeRuneInString(s[i:])
+		if r == utf8.RuneError {
+			return true
+		}
+		i += size
+	}
+	return false
 }
 
 // getColoredKey returns a color formatter key based on the log level.
@@ -370,15 +409,15 @@ func getColoredKey(k string, lvl Level) string {
 	return colorLvlMap[lvl] + k + reset
 }
 
-// checkEscapingRune returns true if the rune is to be escaped.
-func checkEscapingRune(r rune) bool {
-	return r == '=' || r == ' ' || r == '"' || r == utf8.RuneError
-}
-
-// writeQuotedString quotes a string before writing to the buffer.
+// writeQuotedString quotes a string and escapes control characters.
 // Taken from: https://github.com/go-logfmt/logfmt/blob/99455b83edb21b32a1f1c0a32f5001b77487b721/jsonstring.go#L95
 func writeQuotedString(buf *byteBuffer, s string) {
 	buf.AppendByte('"')
+	appendQuotedStringContent(buf, s)
+	buf.AppendByte('"')
+}
+
+func appendQuotedStringContent(buf *byteBuffer, s string) {
 	start := 0
 	for i := 0; i < len(s); {
 		if b := s[i]; b < utf8.RuneSelf {
@@ -435,5 +474,4 @@ func writeQuotedString(buf *byteBuffer, s string) {
 		buf.AppendString(s[start:])
 	}
 
-	buf.AppendByte('"')
 }
