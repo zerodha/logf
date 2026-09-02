@@ -57,6 +57,10 @@ func (bb *byteBuffer) AppendInt(i int64) {
 
 // AppendTime appends the time formatted using the specified layout.
 func (bb *byteBuffer) AppendTime(t time.Time, layout string) {
+	if layout == defaultTSFormat {
+		bb.B = t.Truncate(time.Millisecond).AppendFormat(bb.B, time.RFC3339Nano)
+		return
+	}
 	bb.B = t.AppendFormat(bb.B, layout)
 }
 

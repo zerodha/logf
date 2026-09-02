@@ -132,6 +132,29 @@ timestamp=2024-01-15T10:30:00.000Z level=info message="query executed" database.
 timestamp=2024-01-15T10:30:00.000Z level=error message="database error" error="connection timeout"
 ```
 
+### JSON output
+
+Use `NewSlogJSONHandler` for line-delimited structured JSON:
+
+```go
+handler := logf.NewSlogJSONHandler(logger)
+slogger := slog.New(handler)
+
+slogger.Info("request completed",
+	slog.String("method", "GET"),
+	slog.Int("status", 200),
+	slog.Group("response", slog.Duration("latency", 150*time.Millisecond)),
+)
+```
+
+```json
+{"time":"2024-01-15T10:30:00Z","level":"INFO","msg":"request completed","method":"GET","status":200,"response":{"latency":150000000}}
+```
+
+The JSON handler follows `slog.JSONHandler` conventions: the built-in keys are `time`, `level`, `msg`, and optional `source`; groups are nested objects; durations are nanoseconds; arbitrary values retain their `encoding/json` structure; and HTML characters are not escaped. `EnableColor` and `TimestampFormat` do not affect JSON output.
+
+Following slog's [performance guidance](https://pkg.go.dev/log/slog#hdr-Performance_considerations), attributes added with `Logger.With` or `Handler.WithAttrs` are resolved and formatted once. Per-record `LogValuer` values are resolved only for enabled records. Each complete record is passed to the synchronized writer in one call.
+
 ## Why another lib
 
 There are several logging libraries, but the available options didn't meet our use case.
@@ -158,17 +181,36 @@ BenchmarkHugePayload-20                   1250776               923.0 ns/op     
 BenchmarkThreeFields_WithCaller-20        1244536              1049   ns/op           248 B/op          2 allocs/op
 ```
 
-### Slog Handler Comparison
+### Slog Text Handler Comparison
 
-| Benchmark | logf slog | slog JSON | slog Text |
-|-----------|-----------|-----------|-----------|
-| NoField | 748 ns/op, 0 allocs | 780 ns/op, 0 allocs | 734 ns/op, 0 allocs |
-| OneField | 756 ns/op, 0 allocs | 768 ns/op, 0 allocs | - |
-| ThreeFields | 711 ns/op, 1 alloc | 722 ns/op, 0 allocs | 816 ns/op, 0 allocs |
-| HugePayload | 1129 ns/op, 3 allocs | 953 ns/op, 7 allocs | 549 ns/op, 1 alloc |
-| Disabled | **0.78 ns/op, 0 allocs** | - | - |
+Representative `go test -run '^$' -bench '^(BenchmarkSlog|BenchmarkVanillaSlog_Text)' -benchmem -count=5` medians on Go 1.27:
 
-The logf slog handler provides competitive performance with vanilla slog handlers while outputting human-readable logfmt format. When logs are disabled, the handler short-circuits in sub-nanosecond time.
+| Benchmark | logf slog | slog Text |
+|-----------|-----------|-----------|
+| NoField | 112 ns/op, 0 allocs | 149 ns/op, 0 allocs |
+| ThreeFields | 147 ns/op, 0 allocs | 164 ns/op, 0 allocs |
+| HugePayload | 294 ns/op, 1 alloc | 509 ns/op, 1 alloc |
+| WithAttrs | 130 ns/op, 0 allocs | 167 ns/op, 0 allocs |
+| WithAttrsNestedGroup | 125 ns/op, 0 allocs | 147 ns/op, 0 allocs |
+| Disabled | **0.85 ns/op, 0 allocs** | - |
+
+`logf` preformats persistent attributes and short-circuits disabled records before they allocate a slog Record. Results vary by Go version, CPU, and output writer.
+
+### Slog JSON Handler Comparison
+
+Representative `go test -run '^$' -bench '^(BenchmarkSlogJSON|BenchmarkVanillaSlog_JSON)' -benchmem -count=5` medians on Go 1.27:
+
+| Benchmark | logf JSON | slog JSON |
+|-----------|------------|-----------|
+| NoField | 142 ns/op, 0 allocs | 180 ns/op, 0 allocs |
+| ThreeFields | 157 ns/op, 0 allocs | 197 ns/op, 0 allocs |
+| HugePayload | 350 ns/op, 1 alloc | 509 ns/op, 5 allocs |
+| WithAttrs | 161 ns/op, 0 allocs | 166 ns/op, 0 allocs |
+| NestedGroup | 248 ns/op, 5 allocs | 293 ns/op, 5 allocs |
+| StructuredAny | 252 ns/op, 2 allocs | 291 ns/op, 2 allocs |
+| Disabled LogValuer | 1.18 ns/op, 0 allocs | 1.39 ns/op, 0 allocs |
+
+The handler-only caller path is 231 ns/op with zero allocations, compared with 738 ns/op, 584 B, and six allocations for `slog.JSONHandler`.
 
 For a comparison with existing popular libs, visit [uber-go/zap#performance](https://github.com/uber-go/zap#performance).
 

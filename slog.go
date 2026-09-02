@@ -4,16 +4,26 @@ import (
 	"context"
 	"log/slog"
 	"runtime"
+	"sync"
 	"time"
 )
 
 // SlogHandler is an implementation of slog.Handler that uses logf for output.
-// It allows users of the standard library's slog package to output logs
-// in logfmt format using logf's efficient, zero-allocation formatting.
+// It allows users of the standard library's slog package to output logs in
+// logfmt format using logf's efficient formatting.
 type SlogHandler struct {
-	logger      Logger
-	attrs       []slog.Attr
-	groupPrefix string
+	logger               Logger
+	attrs                []slogHandlerAttr
+	preformatted         []byte
+	defaultFields        []any
+	preformattedDefaults []byte
+	groupPrefix          string
+	sourceCache          *sync.Map
+}
+
+type slogHandlerAttr struct {
+	attr   slog.Attr
+	prefix string
 }
 
 // NewSlogHandler creates a new slog.Handler that outputs to the given logf.Logger.
@@ -26,11 +36,19 @@ type SlogHandler struct {
 //	slogger := slog.New(handler)
 //	slogger.Info("hello", "key", "value")
 func NewSlogHandler(l Logger) *SlogHandler {
-	return &SlogHandler{
-		logger:      l,
-		attrs:       nil,
-		groupPrefix: "",
+	handler := &SlogHandler{
+		logger:        l,
+		defaultFields: append([]any(nil), l.DefaultFields...),
 	}
+	if !l.EnableColor {
+		buf := &byteBuffer{}
+		handler.appendDefaultFields(buf, InfoLevel)
+		handler.preformattedDefaults = buf.B
+	}
+	if l.EnableCaller {
+		handler.sourceCache = &sync.Map{}
+	}
+	return handler
 }
 
 // Enabled reports whether the handler handles records at the given level.
@@ -41,36 +59,35 @@ func (h *SlogHandler) Enabled(_ context.Context, level slog.Level) bool {
 // Handle handles the Record. It will only be called when Enabled returns true.
 func (h *SlogHandler) Handle(_ context.Context, r slog.Record) error {
 	lvl := slogLevelToLogf(r.Level)
-
 	if lvl < h.logger.Level {
 		return nil
 	}
 
 	buf := bufPool.Get()
 
-	writeTimeToBuf(buf, h.logger.TimestampFormat, lvl, h.logger.EnableColor)
+	writeSlogTimeToBuf(buf, r.Time, h.logger.TimestampFormat, lvl, h.logger.EnableColor)
 	writeToBuf(buf, "level", lvl, lvl, h.logger.EnableColor, true)
 	writeStringToBuf(buf, "message", r.Message, lvl, h.logger.EnableColor, true)
 
 	if h.logger.EnableCaller && r.PC != 0 {
-		writeSlogCallerToBuf(buf, "caller", r.PC, lvl, h.logger.EnableColor, true)
+		h.writeCallerToBuf(buf, "caller", r.PC, lvl, h.logger.EnableColor, true)
 	}
 
-	var key string
-	for i := range h.logger.DefaultFields {
-		if i%2 == 0 {
-			key = h.logger.DefaultFields[i].(string)
-			continue
+	if h.logger.EnableColor {
+		h.appendDefaultFields(buf, lvl)
+	} else {
+		buf.B = append(buf.B, h.preformattedDefaults...)
+	}
+
+	if h.logger.EnableColor {
+		for _, attr := range h.attrs {
+			h.appendAttr(buf, attr.attr, lvl, attr.prefix, nil)
 		}
-		writeToBuf(buf, key, h.logger.DefaultFields[i], lvl, h.logger.EnableColor, true)
+	} else {
+		buf.B = append(buf.B, h.preformatted...)
 	}
-
-	for _, attr := range h.attrs {
-		h.writeAttr(buf, attr, lvl, true)
-	}
-
-	r.Attrs(func(a slog.Attr) bool {
-		h.writeAttr(buf, a, lvl, true)
+	r.Attrs(func(attr slog.Attr) bool {
+		h.appendAttr(buf, attr, lvl, h.groupPrefix, nil)
 		return true
 	})
 
@@ -83,21 +100,39 @@ func (h *SlogHandler) Handle(_ context.Context, r slog.Record) error {
 
 	_, err := h.logger.out.Write(buf.Bytes())
 	bufPool.Put(buf)
-
 	return err
 }
 
 // WithAttrs returns a new Handler whose attributes consist of both the
 // receiver's attributes and the arguments.
 func (h *SlogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	newAttrs := make([]slog.Attr, len(h.attrs)+len(attrs))
-	copy(newAttrs, h.attrs)
-	copy(newAttrs[len(h.attrs):], attrs)
+	if len(attrs) == 0 {
+		return h
+	}
+
+	handlerAttrs := make([]slogHandlerAttr, len(h.attrs)+len(attrs))
+	copy(handlerAttrs, h.attrs)
+	for i, attr := range attrs {
+		handlerAttrs[len(h.attrs)+i] = slogHandlerAttr{attr: resolveSlogAttr(attr), prefix: h.groupPrefix}
+	}
+
+	preformatted := append([]byte(nil), h.preformatted...)
+	if !h.logger.EnableColor {
+		buf := &byteBuffer{B: preformatted}
+		for _, attr := range handlerAttrs[len(h.attrs):] {
+			h.appendAttr(buf, attr.attr, InfoLevel, attr.prefix, nil)
+		}
+		preformatted = buf.B
+	}
 
 	return &SlogHandler{
-		logger:      h.logger,
-		attrs:       newAttrs,
-		groupPrefix: h.groupPrefix,
+		logger:               h.logger,
+		attrs:                handlerAttrs,
+		preformatted:         preformatted,
+		defaultFields:        h.defaultFields,
+		preformattedDefaults: h.preformattedDefaults,
+		groupPrefix:          h.groupPrefix,
+		sourceCache:          h.sourceCache,
 	}
 }
 
@@ -108,100 +143,217 @@ func (h *SlogHandler) WithGroup(name string) slog.Handler {
 		return h
 	}
 
-	var newPrefix string
-	if h.groupPrefix == "" {
-		newPrefix = name
-	} else {
-		newPrefix = h.groupPrefix + "." + name
-	}
-
 	return &SlogHandler{
-		logger:      h.logger,
-		attrs:       h.attrs,
-		groupPrefix: newPrefix,
+		logger:               h.logger,
+		attrs:                h.attrs,
+		preformatted:         h.preformatted,
+		defaultFields:        h.defaultFields,
+		preformattedDefaults: h.preformattedDefaults,
+		groupPrefix:          slogKey(h.groupPrefix, name),
+		sourceCache:          h.sourceCache,
 	}
 }
 
-// writeAttr writes a single slog.Attr to the buffer with proper formatting.
-func (h *SlogHandler) writeAttr(buf *byteBuffer, attr slog.Attr, lvl Level, space bool) {
-	// Resolve the attribute (handles LogValuer interface).
-	attr.Value = attr.Value.Resolve()
+func (h *SlogHandler) appendDefaultFields(buf *byteBuffer, lvl Level) {
+	var key string
+	for i := range h.defaultFields {
+		if i%2 == 0 {
+			key = h.defaultFields[i].(string)
+			continue
+		}
+		writeToBuf(buf, key, h.defaultFields[i], lvl, h.logger.EnableColor, true)
+	}
+}
 
-	// Skip empty attrs.
+// resolveSlogAttr resolves a persistent attribute, including nested groups.
+func resolveSlogAttr(attr slog.Attr) slog.Attr {
+	attr.Value = attr.Value.Resolve()
+	if attr.Value.Kind() != slog.KindGroup {
+		return attr
+	}
+
+	group := attr.Value.Group()
+
+	resolved := make([]slog.Attr, len(group))
+	for i, groupAttr := range group {
+		resolved[i] = resolveSlogAttr(groupAttr)
+	}
+	attr.Value = slog.GroupValue(resolved...)
+	return attr
+}
+
+type slogGroup struct {
+	parent *slogGroup
+	name   string
+}
+
+// appendAttr appends attr and nested groups in logfmt form.
+func (h *SlogHandler) appendAttr(buf *byteBuffer, attr slog.Attr, lvl Level, prefix string, group *slogGroup) {
+	attr.Value = attr.Value.Resolve()
 	if attr.Equal(slog.Attr{}) {
 		return
 	}
 
-	key := attr.Key
-	if h.groupPrefix != "" {
-		key = h.groupPrefix + "." + key
+	if attr.Value.Kind() == slog.KindGroup {
+		if attr.Key != "" {
+			group = &slogGroup{parent: group, name: attr.Key}
+		}
+		for _, groupAttr := range attr.Value.Group() {
+			h.appendAttr(buf, groupAttr, lvl, prefix, group)
+		}
+		return
 	}
 
-	// Handle the value based on its kind.
-	switch attr.Value.Kind() {
-	case slog.KindGroup:
-		// For groups, recursively write each attribute with the group name as prefix.
-		groupAttrs := attr.Value.Group()
-		for i, ga := range groupAttrs {
-			groupedKey := key + "." + ga.Key
-			groupedAttr := slog.Attr{Key: groupedKey, Value: ga.Value}
-			// Add space between group attrs, and after the last one if parent needs space.
-			isLast := i == len(groupAttrs)-1
-			needsSpace := !isLast || space
-			h.writeAttrDirect(buf, groupedAttr, lvl, needsSpace)
-		}
-	default:
-		h.writeAttrDirect(buf, slog.Attr{Key: key, Value: attr.Value}, lvl, space)
-	}
+	writeSlogAttr(buf, prefix, group, attr.Key, attr.Value, lvl, h.logger.EnableColor)
 }
 
-// writeAttrDirect writes a single attribute directly to the buffer.
-func (h *SlogHandler) writeAttrDirect(buf *byteBuffer, attr slog.Attr, lvl Level, space bool) {
-	switch attr.Value.Kind() {
-	case slog.KindString:
-		writeStringToBuf(buf, attr.Key, attr.Value.String(), lvl, h.logger.EnableColor, space)
-	case slog.KindInt64:
-		writeToBuf(buf, attr.Key, attr.Value.Int64(), lvl, h.logger.EnableColor, space)
-	case slog.KindUint64:
-		writeToBuf(buf, attr.Key, int64(attr.Value.Uint64()), lvl, h.logger.EnableColor, space)
-	case slog.KindFloat64:
-		writeToBuf(buf, attr.Key, attr.Value.Float64(), lvl, h.logger.EnableColor, space)
-	case slog.KindBool:
-		writeToBuf(buf, attr.Key, attr.Value.Bool(), lvl, h.logger.EnableColor, space)
-	case slog.KindDuration:
-		writeDurationToBuf(buf, attr.Key, attr.Value.Duration(), lvl, h.logger.EnableColor, space)
-	case slog.KindTime:
-		writeTimestampAttr(buf, attr.Key, attr.Value.Time(), h.logger.TimestampFormat, lvl, h.logger.EnableColor, space)
-	case slog.KindAny:
-		val := attr.Value.Any()
-		if err, ok := val.(error); ok {
-			writeStringToBuf(buf, attr.Key, err.Error(), lvl, h.logger.EnableColor, space)
-		} else {
-			writeToBuf(buf, attr.Key, val, lvl, h.logger.EnableColor, space)
-		}
-	default:
-		writeToBuf(buf, attr.Key, attr.Value.Any(), lvl, h.logger.EnableColor, space)
+func slogKey(prefix, key string) string {
+	if prefix == "" {
+		return key
 	}
+	if key == "" {
+		return prefix
+	}
+	return prefix + "." + key
 }
 
-// writeTimestampAttr writes a time attribute with proper formatting.
-func writeTimestampAttr(buf *byteBuffer, key string, t time.Time, format string, lvl Level, color, space bool) {
-	if color {
-		escapeAndWriteString(buf, getColoredKey(key, lvl))
-	} else {
-		escapeAndWriteString(buf, key)
-	}
+// writeSlogAttr writes one resolved, non-group attribute.
+func writeSlogAttr(buf *byteBuffer, prefix string, group *slogGroup, key string, value slog.Value, lvl Level, color bool) {
+	appendSlogKey(buf, prefix, group, key, lvl, color)
 	buf.AppendByte('=')
-	buf.AppendTime(t, format)
-	if space {
-		buf.AppendByte(' ')
+
+	switch value.Kind() {
+	case slog.KindString:
+		escapeAndWriteString(buf, value.String())
+	case slog.KindInt64:
+		buf.AppendInt(value.Int64())
+	case slog.KindUint64:
+		buf.AppendUint(value.Uint64())
+	case slog.KindFloat64:
+		buf.AppendFloat(value.Float64(), 64)
+	case slog.KindBool:
+		buf.AppendBool(value.Bool())
+	case slog.KindDuration:
+		buf.AppendDuration(value.Duration())
+	case slog.KindTime:
+		buf.AppendTime(value.Time(), time.RFC3339Nano)
+	case slog.KindAny:
+		appendValueToBuf(buf, value.Any())
+	default:
+		appendValueToBuf(buf, value.Any())
+	}
+	buf.AppendByte(' ')
+}
+
+func appendSlogKey(buf *byteBuffer, prefix string, group *slogGroup, key string, lvl Level, color bool) {
+	quoted := slogKeyNeedsQuoting(prefix, group, key)
+	if quoted {
+		buf.AppendByte('"')
+	}
+	if color {
+		buf.AppendString(colorLvlMap[lvl])
+	}
+
+	wrote := false
+	appendSlogKeyPart(buf, prefix, quoted, &wrote)
+	appendSlogGroup(buf, group, quoted, &wrote)
+	appendSlogKeyPart(buf, key, quoted, &wrote)
+
+	if color {
+		buf.AppendString(reset)
+	}
+	if quoted {
+		buf.AppendByte('"')
 	}
 }
 
-// writeSlogCallerToBuf writes caller info from slog.Record.PC to buffer.
-func writeSlogCallerToBuf(buf *byteBuffer, key string, pc uintptr, lvl Level, color, space bool) {
+func appendSlogGroup(buf *byteBuffer, group *slogGroup, quoted bool, wrote *bool) {
+	if group == nil {
+		return
+	}
+	appendSlogGroup(buf, group.parent, quoted, wrote)
+	appendSlogKeyPart(buf, group.name, quoted, wrote)
+}
+
+func appendSlogKeyPart(buf *byteBuffer, part string, quoted bool, wrote *bool) {
+	if part == "" {
+		return
+	}
+	if *wrote {
+		buf.AppendByte('.')
+	}
+	if quoted {
+		appendQuotedStringContent(buf, part)
+	} else {
+		buf.AppendString(part)
+	}
+	*wrote = true
+}
+
+func slogKeyNeedsQuoting(prefix string, group *slogGroup, key string) bool {
+	parts := 0
+	if prefix != "" {
+		parts++
+		if needsEscaping(prefix) {
+			return true
+		}
+	}
+	for current := group; current != nil; current = current.parent {
+		parts++
+		if needsEscaping(current.name) {
+			return true
+		}
+	}
+	if key != "" {
+		parts++
+		if needsEscaping(key) {
+			return true
+		}
+	}
+	if parts != 1 {
+		return false
+	}
+	if prefix != "" {
+		return prefix == "null"
+	}
+	if group != nil {
+		return group.name == "null"
+	}
+	return key == "null"
+}
+
+func writeSlogTimeToBuf(buf *byteBuffer, t time.Time, format string, lvl Level, color bool) {
+	if color {
+		buf.AppendString(getColoredKey(tsKey, lvl))
+	} else {
+		buf.AppendString(tsKey)
+	}
+	buf.AppendTime(t, format)
+	buf.AppendByte(' ')
+}
+
+type slogSource struct {
+	function string
+	file     string
+	line     int
+}
+
+func sourceForPC(cache *sync.Map, pc uintptr) slogSource {
+	if cached, ok := cache.Load(pc); ok {
+		return cached.(slogSource)
+	}
+
 	fs := runtime.CallersFrames([]uintptr{pc})
-	f, _ := fs.Next()
+	frame, _ := fs.Next()
+	source := slogSource{function: frame.Function, file: frame.File, line: frame.Line}
+	cached, _ := cache.LoadOrStore(pc, source)
+	return cached.(slogSource)
+}
+
+// writeCallerToBuf writes caller info from slog.Record.PC to buf. Source
+// resolution is cached because a logger normally sees the same callsite PCs.
+func (h *SlogHandler) writeCallerToBuf(buf *byteBuffer, key string, pc uintptr, lvl Level, color, space bool) {
+	source := sourceForPC(h.sourceCache, pc)
 
 	if color {
 		buf.AppendString(getColoredKey(key, lvl))
@@ -210,13 +362,13 @@ func writeSlogCallerToBuf(buf *byteBuffer, key string, pc uintptr, lvl Level, co
 	}
 
 	buf.AppendByte('=')
-	if f.File != "" {
-		escapeAndWriteString(buf, f.File)
+	if source.file != "" {
+		escapeAndWriteString(buf, source.file)
 	} else {
 		buf.AppendString("???")
 	}
 	buf.AppendByte(':')
-	buf.AppendInt(int64(f.Line))
+	buf.AppendInt(int64(source.line))
 
 	if space {
 		buf.AppendByte(' ')

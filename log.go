@@ -6,7 +6,6 @@ import (
 	stdlog "log"
 	"os"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -285,21 +284,6 @@ func writeStringToBuf(buf *byteBuffer, key, val string, lvl Level, color, space 
 	}
 }
 
-func writeDurationToBuf(buf *byteBuffer, key string, d time.Duration, lvl Level, color, space bool) {
-	if color {
-		escapeAndWriteString(buf, getColoredKey(key, lvl))
-	} else {
-		escapeAndWriteString(buf, key)
-	}
-
-	buf.AppendByte('=')
-	buf.AppendDuration(d)
-
-	if space {
-		buf.AppendByte(' ')
-	}
-}
-
 func writeCallerToBuf(buf *byteBuffer, key string, depth int, lvl Level, color, space bool) {
 	_, file, line, ok := runtime.Caller(depth)
 	if !ok {
@@ -332,7 +316,14 @@ func writeToBuf(buf *byteBuffer, key string, val any, lvl Level, color, space bo
 	}
 
 	buf.AppendByte('=')
+	appendValueToBuf(buf, val)
 
+	if space {
+		buf.AppendByte(' ')
+	}
+}
+
+func appendValueToBuf(buf *byteBuffer, val any) {
 	switch v := val.(type) {
 	case nil:
 		buf.AppendString("null")
@@ -340,6 +331,8 @@ func writeToBuf(buf *byteBuffer, key string, val any, lvl Level, color, space bo
 		escapeAndWriteString(buf, string(v))
 	case string:
 		escapeAndWriteString(buf, v)
+	case Level:
+		buf.AppendString(v.String())
 	case int:
 		buf.AppendInt(int64(v))
 	case int8:
@@ -377,21 +370,38 @@ func writeToBuf(buf *byteBuffer, key string, val any, lvl Level, color, space bo
 	default:
 		escapeAndWriteString(buf, fmt.Sprintf("%v", val))
 	}
-
-	if space {
-		buf.AppendByte(' ')
-	}
 }
 
-// escapeAndWriteString escapes the string if any unwanted chars are there.
+// escapeAndWriteString quotes and escapes strings when required by logfmt.
 func escapeAndWriteString(buf *byteBuffer, s string) {
-	idx := strings.IndexFunc(s, checkEscapingRune)
-	if idx != -1 || s == "null" {
+	if needsQuoting(s) {
 		writeQuotedString(buf, s)
 		return
 	}
-
 	buf.AppendString(s)
+}
+
+func needsQuoting(s string) bool {
+	return s == "null" || needsEscaping(s)
+}
+
+func needsEscaping(s string) bool {
+	for i := 0; i < len(s); {
+		b := s[i]
+		if b < utf8.RuneSelf {
+			if b == '=' || b == ' ' || b == '"' {
+				return true
+			}
+			i++
+			continue
+		}
+		r, size := utf8.DecodeRuneInString(s[i:])
+		if r == utf8.RuneError {
+			return true
+		}
+		i += size
+	}
+	return false
 }
 
 // getColoredKey returns a color formatter key based on the log level.
@@ -399,15 +409,15 @@ func getColoredKey(k string, lvl Level) string {
 	return colorLvlMap[lvl] + k + reset
 }
 
-// checkEscapingRune returns true if the rune is to be escaped.
-func checkEscapingRune(r rune) bool {
-	return r == '=' || r == ' ' || r == '"' || r == utf8.RuneError
-}
-
-// writeQuotedString quotes a string before writing to the buffer.
+// writeQuotedString quotes a string and escapes control characters.
 // Taken from: https://github.com/go-logfmt/logfmt/blob/99455b83edb21b32a1f1c0a32f5001b77487b721/jsonstring.go#L95
 func writeQuotedString(buf *byteBuffer, s string) {
 	buf.AppendByte('"')
+	appendQuotedStringContent(buf, s)
+	buf.AppendByte('"')
+}
+
+func appendQuotedStringContent(buf *byteBuffer, s string) {
 	start := 0
 	for i := 0; i < len(s); {
 		if b := s[i]; b < utf8.RuneSelf {
@@ -464,5 +474,4 @@ func writeQuotedString(buf *byteBuffer, s string) {
 		buf.AppendString(s[start:])
 	}
 
-	buf.AppendByte('"')
 }

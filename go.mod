@@ -1,6 +1,6 @@
 module github.com/zerodha/logf
 
-go 1.25
+go 1.27
 
 require github.com/stretchr/testify v1.10.0
 
